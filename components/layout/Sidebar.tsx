@@ -144,17 +144,19 @@ export function Sidebar({
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-20 items-center gap-3 border-b border-white/10 px-5">
-          <Link href="/dashboard" onClick={onCloseMobile} className="flex h-full min-w-0 flex-1 items-center">
+        {/* Full-width white header band so the logo shows in its true brand
+            colours (black + orange) — it isn't legible on the navy. */}
+        <div className="flex h-20 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-5">
+          <Link href="/dashboard" onClick={onCloseMobile} className="flex h-full min-w-0 flex-1 items-center justify-center">
             <img
-              src={BRAND.logoPathOnDark}
+              src={BRAND.logoPath}
               alt={BRAND.companyName}
-              width={881}
-              height={182}
-              className="h-auto max-h-12 w-full object-contain object-left"
+              width={900}
+              height={201}
+              className="h-auto max-h-14 w-full object-contain"
             />
           </Link>
-          <button className="shrink-0 lg:hidden" onClick={onCloseMobile} aria-label="Close menu">
+          <button className="shrink-0 text-slate-700 lg:hidden" onClick={onCloseMobile} aria-label="Close menu">
             <X />
           </button>
         </div>

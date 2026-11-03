@@ -39,8 +39,6 @@ export const BRAND = {
   emailFooterText: "Cheap Mover · Cameron House, West Drayton, UB7 7QG · 0330 113 2111 · contact@cheapmover.co.uk",
 
   logoPath: "/images/cheapmover-logo.webp",
-  /** White-lettered variant for dark backgrounds (the navy sidebar). */
-  logoPathOnDark: "/images/cheapmover-logo-light.webp",
   colors: {
     primary: "#f97316",
     primaryDark: "#ea580c",
