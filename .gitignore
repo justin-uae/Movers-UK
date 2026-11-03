@@ -1,0 +1,58 @@
+# Dependencies
+node_modules
+
+# Next.js build output
+.next
+.turbo
+out
+build
+dist
+next-env.d.ts
+
+# Environment secrets — never commit real keys (.env.local.example is fine, stays tracked)
+.env
+.env.*
+.env.local
+.env*.local
+!.env.local.example
+
+# Private keys / credential files (e.g. a Vonage private.key)
+*.key
+*.p8
+*.p12
+*.pfx
+
+# Supabase CLI local state
+supabase/.temp
+supabase/.branches
+supabase/.env
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# TypeScript
+*.tsbuildinfo
+
+# Test coverage
+coverage
+
+# Editor / IDE
+.claude/settings.local.json
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Deployment platform artifacts
+.vercel
+
+# Local TLS certs Next dev sometimes generates
+*.pem

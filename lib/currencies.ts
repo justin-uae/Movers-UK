@@ -1,0 +1,51 @@
+export interface CurrencyOption {
+  code: string;
+  name: string;
+  symbol: string;
+}
+
+/** Common ISO 4217 currencies for the quote pricing currency picker. Not exhaustive — add more as needed. */
+export const CURRENCIES: CurrencyOption[] = [
+  { code: "EUR", name: "Euro", symbol: "€" },
+  { code: "USD", name: "US Dollar", symbol: "$" },
+  { code: "GBP", name: "British Pound", symbol: "£" },
+  { code: "AED", name: "UAE Dirham", symbol: "AED" },
+  { code: "SAR", name: "Saudi Riyal", symbol: "SAR" },
+  { code: "QAR", name: "Qatari Riyal", symbol: "QAR" },
+  { code: "KWD", name: "Kuwaiti Dinar", symbol: "KWD" },
+  { code: "BHD", name: "Bahraini Dinar", symbol: "BHD" },
+  { code: "OMR", name: "Omani Rial", symbol: "OMR" },
+  { code: "EGP", name: "Egyptian Pound", symbol: "EGP" },
+  { code: "TRY", name: "Turkish Lira", symbol: "₺" },
+  { code: "CHF", name: "Swiss Franc", symbol: "CHF" },
+  { code: "SEK", name: "Swedish Krona", symbol: "SEK" },
+  { code: "NOK", name: "Norwegian Krone", symbol: "NOK" },
+  { code: "DKK", name: "Danish Krone", symbol: "DKK" },
+  { code: "PLN", name: "Polish Zloty", symbol: "PLN" },
+  { code: "CZK", name: "Czech Koruna", symbol: "CZK" },
+  { code: "HUF", name: "Hungarian Forint", symbol: "HUF" },
+  { code: "RON", name: "Romanian Leu", symbol: "RON" },
+  { code: "BGN", name: "Bulgarian Lev", symbol: "BGN" },
+  { code: "RUB", name: "Russian Ruble", symbol: "₽" },
+  { code: "INR", name: "Indian Rupee", symbol: "₹" },
+  { code: "PKR", name: "Pakistani Rupee", symbol: "PKR" },
+  { code: "CNY", name: "Chinese Yuan", symbol: "¥" },
+  { code: "JPY", name: "Japanese Yen", symbol: "¥" },
+  { code: "HKD", name: "Hong Kong Dollar", symbol: "HKD" },
+  { code: "SGD", name: "Singapore Dollar", symbol: "SGD" },
+  { code: "MYR", name: "Malaysian Ringgit", symbol: "MYR" },
+  { code: "THB", name: "Thai Baht", symbol: "฿" },
+  { code: "IDR", name: "Indonesian Rupiah", symbol: "IDR" },
+  { code: "PHP", name: "Philippine Peso", symbol: "PHP" },
+  { code: "AUD", name: "Australian Dollar", symbol: "A$" },
+  { code: "NZD", name: "New Zealand Dollar", symbol: "NZ$" },
+  { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
+  { code: "ZAR", name: "South African Rand", symbol: "ZAR" },
+  { code: "NGN", name: "Nigerian Naira", symbol: "NGN" },
+  { code: "KES", name: "Kenyan Shilling", symbol: "KES" },
+  { code: "MAD", name: "Moroccan Dirham", symbol: "MAD" },
+  { code: "JOD", name: "Jordanian Dinar", symbol: "JOD" },
+  { code: "LBP", name: "Lebanese Pound", symbol: "LBP" },
+  { code: "BRL", name: "Brazilian Real", symbol: "R$" },
+  { code: "MXN", name: "Mexican Peso", symbol: "MX$" },
+];

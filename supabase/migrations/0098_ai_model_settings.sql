@@ -1,0 +1,23 @@
+-- =============================================================================
+-- Global Transport CRM — per-feature AI model selection.
+--
+-- Every AI call in the CRM used to be hardcoded to OpenAI. This lets Master
+-- Admin pick a different provider/model per feature (Settings -> AI Models)
+-- without touching code — see lib/aiProviders.ts for the adapter layer that
+-- actually reads this.
+--
+-- One JSONB column rather than a new table: there's a small, fixed set of
+-- feature keys (whatsapp_intake, pricing_engine, email_intake,
+-- complex_booking), and a missing/empty key falls back to OpenAI/gpt-5.5 in
+-- code (lib/aiProviders.ts's DEFAULT_MODEL_SETTING) — so this migration
+-- changes nothing about any existing tenant's behaviour until a Master Admin
+-- explicitly picks something else.
+--
+-- Shape: { "<feature_key>": { "provider": "openai"|"anthropic"|"gemini"|"grok", "model": "<model id>" } }
+--
+-- No new RLS policy needed — the existing tenants_update policy
+-- (0001_foundation.sql) is already is_master_admin()-only, and tenants_select
+-- already lets any signed-in member of the tenant read their own row.
+-- =============================================================================
+
+alter table tenants add column ai_model_settings jsonb not null default '{}'::jsonb;

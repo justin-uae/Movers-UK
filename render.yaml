@@ -1,0 +1,168 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploys the Next.js app as a web service, plus these cron jobs:
+#   - email-sync: polls every active email_accounts mailbox's INBOX via IMAP
+#     (app/api/cron/email-sync/route.ts).
+#   - task-automation: sweeps for TSK-02's four automated task triggers —
+#     quote follow-up, payment due, supplier confirmation, travel prep
+#     (app/api/cron/task-automation/route.ts).
+#   - ai-auto-quote: prices and sends a quote via OpenAI for leads that sat
+#     unquoted past their SLA (app/api/cron/ai-auto-quote/route.ts).
+#   - email-lead-intake: polls the one shared inbox all 300+ websites forward
+#     enquiries into, and has OpenAI turn genuine ones into leads
+#     (app/api/cron/email-lead-intake/route.ts).
+#   - quote-reminders: emails customers follow-up reminders on unaccepted
+#     quotes and payment reminders on accepted-but-unpaid ones, every 15
+#     minutes (app/api/cron/quote-reminders/route.ts).
+# The remaining cron jobs stay commented out until their route handlers
+# exist (Phase 2+: quote-expiry, dispatch-wave-escalation, document-expiry,
+# daily-brief) — uncomment and point each at its /api/cron/<name> route as
+# those phases are built.
+#
+# NOTE: these cron jobs may have been created by hand in the Render
+# dashboard rather than via Blueprint sync — check whether this file's
+# changes need mirroring there manually before assuming a deploy picks them
+# up automatically.
+
+services:
+  - type: web
+    name: cheapmover-crm
+    runtime: node
+    plan: starter
+    branch: main
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /login
+    envVars:
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CRON_SECRET
+        generateValue: true
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: EMAIL_CREDENTIALS_KEY
+        generateValue: true
+      - key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: WHATSAPP_API_KEY
+        sync: false
+      - key: WHATSAPP_API_BASE_URL
+        sync: false
+      - key: WHATSAPP_TEMPLATE_HEADER_IMAGE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LEADS_INBOX_IMAP_HOST
+        sync: false
+      - key: LEADS_INBOX_IMAP_PORT
+        sync: false
+      - key: LEADS_INBOX_IMAP_USER
+        sync: false
+      - key: LEADS_INBOX_IMAP_PASS
+        sync: false
+      - key: LEADS_INBOX_IMAP_SECURE
+        sync: false
+      - key: NODE_VERSION
+        value: 20.17.0
+
+  - type: cron
+    name: email-sync
+    runtime: node
+    schedule: "*/5 * * * *"
+    buildCommand: npm install
+    startCommand: >
+      curl -sf -X POST "$NEXT_PUBLIC_APP_URL/api/cron/email-sync"
+      -H "Authorization: Bearer $CRON_SECRET"
+    envVars:
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+
+  - type: cron
+    name: task-automation
+    runtime: node
+    schedule: "0 * * * *"
+    buildCommand: npm install
+    startCommand: >
+      curl -sf -X POST "$NEXT_PUBLIC_APP_URL/api/cron/task-automation"
+      -H "Authorization: Bearer $CRON_SECRET"
+    envVars:
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+
+  - type: cron
+    name: ai-auto-quote
+    runtime: node
+    schedule: "0 * * * *"
+    buildCommand: npm install
+    startCommand: >
+      curl -sf -X POST "$NEXT_PUBLIC_APP_URL/api/cron/ai-auto-quote"
+      -H "Authorization: Bearer $CRON_SECRET"
+    envVars:
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+
+  - type: cron
+    name: email-lead-intake
+    runtime: node
+    schedule: "*/5 * * * *"
+    buildCommand: npm install
+    startCommand: >
+      curl -sf -X POST "$NEXT_PUBLIC_APP_URL/api/cron/email-lead-intake"
+      -H "Authorization: Bearer $CRON_SECRET"
+    envVars:
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+
+  - type: cron
+    name: quote-reminders
+    runtime: node
+    schedule: "*/15 * * * *"
+    buildCommand: npm install
+    startCommand: >
+      curl -sf -X POST "$NEXT_PUBLIC_APP_URL/api/cron/quote-reminders"
+      -H "Authorization: Bearer $CRON_SECRET"
+    envVars:
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+
+  # - type: cron
+  #   name: quote-expiry-sweep
+  #   runtime: node
+  #   schedule: "*/15 * * * *"
+  #   buildCommand: npm install
+  #   startCommand: >
+  #     curl -sf -X POST "$NEXT_PUBLIC_APP_URL/api/cron/quote-expiry"
+  #     -H "Authorization: Bearer $CRON_SECRET"
+  #   envVars:
+  #     - key: NEXT_PUBLIC_APP_URL
+  #       sync: false
+  #     - key: CRON_SECRET
+  #       sync: false

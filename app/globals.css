@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #f97316;
+  --color-sidebar: #192233;
+  --color-appbg: #f6f7fb;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+}
+
+:root[data-theme="dark"] {
+  --color-appbg: #0f1420;
+}
+
+body {
+  background-color: var(--color-appbg);
+}
+
+/* Anything under 16px makes iOS Safari auto-zoom the page on focus. !important
+   is deliberate here — many inputs across the app carry a text-sm/text-xs
+   class directly (14px/12px), which would otherwise win over a plain
+   input/select/textarea rule via class-vs-type-selector specificity and
+   silently reintroduce the zoom-on-focus bug on exactly those fields. */
+input,
+select,
+textarea {
+  font-size: 1rem !important;
+}
+
+/* Dial-code phone input (components/ui/PhoneNumberField.tsx) — restyles
+   react-phone-number-input to match the app's rounded-xl bordered inputs. */
+.PhoneNumberField.PhoneInput {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  background: #fff;
+}
+.PhoneNumberField.PhoneInput--focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(249 115 22 / 0.15);
+}
+.PhoneNumberField.PhoneInput--disabled {
+  background: #f8fafc;
+  opacity: 0.7;
+}
+.PhoneNumberField .PhoneInputCountryIcon {
+  width: 1.3em;
+  height: 1.3em;
+  border-radius: 2px;
+}
+.PhoneNumberField .PhoneInputInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  /* 16px, not 14px — anything smaller makes iOS Safari auto-zoom the page
+     when this input is focused. */
+  font-size: 1rem;
+  background: transparent;
+}
