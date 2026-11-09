@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — moves the SEPA/SWIFT timing notes off the two EUR
+-- Cheap Mover CRM — moves the SEPA/SWIFT timing notes off the two EUR
 -- bank profiles (seeded in 0055_bank_details_and_terms.sql) and into Terms &
 -- Conditions instead. The bank-details cards should show only the payment
 -- details themselves; timing/address guidance belongs in the T&Cs as a note,

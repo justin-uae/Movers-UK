@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Per-user IMAP/SMTP mailbox connections + synced mail
+-- Cheap Mover CRM — Per-user IMAP/SMTP mailbox connections + synced mail
 --
 -- email_accounts: one mailbox per staff member (profiles.id), configured by
 -- a Master Admin from Settings -> Users (admin.manage_users). IMAP/SMTP

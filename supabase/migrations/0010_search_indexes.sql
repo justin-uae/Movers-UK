@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Trigram indexes for the new server-side searches
+-- Cheap Mover CRM — Trigram indexes for the new server-side searches
 --
 -- Leads/Quotes/Suppliers/Users pages moved their search from client-side
 -- JSON.stringify()-per-row filtering to server-side .ilike() queries (Part

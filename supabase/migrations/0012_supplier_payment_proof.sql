@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Payment-proof attachment for supplier payments +
+-- Cheap Mover CRM — Payment-proof attachment for supplier payments +
 -- job_offer_view prefill amount for the supplier invoice form.
 --
 -- supplier_payments already models "one bank-transfer event" per row

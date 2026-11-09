@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Real Commissions module (Part 16, projectContext.md).
+-- Cheap Mover CRM — Real Commissions module (Part 16, projectContext.md).
 --
 -- Canonical rule (§104): commission is never final at quote-accept or
 -- payment time, only once the job is completed and costs are confirmed.

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Supplier suspension.
+-- Cheap Mover CRM — Supplier suspension.
 --
 -- 'suspended' already existed as a supplier_status enum value (0003_
 -- operations.sql) and dispatch already only ever offers jobs to status =

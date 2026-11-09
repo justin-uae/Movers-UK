@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — AI-driven WhatsApp lead intake.
+-- Cheap Mover CRM — AI-driven WhatsApp lead intake.
 --
 -- Replaces the fixed name -> email -> pickup -> destination -> passengers ->
 -- date question sequence with a free-form conversation run by OpenAI

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Phase 2 (Sales CRM)
+-- Cheap Mover CRM — Phase 2 (Sales CRM)
 -- Customers, vehicle types, omnichannel lead intake + territory-based
 -- routing, the open lead pool (race-safe claim), enquiries/journey legs, and
 -- versioned quotes with a token-based customer accept/reject flow.

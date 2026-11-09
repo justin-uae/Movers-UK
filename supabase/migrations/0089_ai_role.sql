@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — add a dedicated "AI" role so AI-authored quotes are
+-- Cheap Mover CRM — add a dedicated "AI" role so AI-authored quotes are
 -- attributed to a real profile (with its own login) instead of created_by =
 -- null, and can be filtered to that profile's own dashboard the same way a
 -- Sales User's quotes are filtered to theirs.

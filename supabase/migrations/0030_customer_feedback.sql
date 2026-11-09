@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Real Customer Experience module (Part 25, §153,
+-- Cheap Mover CRM — Real Customer Experience module (Part 25, §153,
 -- projectContext.md).
 --
 -- On job completion, request one NPS-style question (0-10) + optional
@@ -64,7 +64,7 @@ as $$
   <p><a href="{{link}}" style="display:inline-block;background:#f97316;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">View &amp; Respond to Quote</a></p>
   <p style="color:#64748b;font-size:13px;">If the button does not work, copy and paste this link: {{link}}</p>
   <p>Thanks,<br />{{brand_name}}</p>
-  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}} in Association with Global Bus Rental Worldwide Group Transport</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}}</p>
 </div>$q$
     ),
     (
@@ -73,7 +73,7 @@ as $$
       $q$<div style="font-family: Arial, sans-serif; color: #1e293b; line-height: 1.6;">
   <p>Good news — <b>{{customer_name}}</b> has accepted quote <b>{{quote_number}}</b>.</p>
   <p><a href="{{link}}" style="display:inline-block;background:#f97316;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">View Quote</a></p>
-  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}} in Association with Global Bus Rental Worldwide Group Transport</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}}</p>
 </div>$q$
     ),
     (
@@ -83,7 +83,7 @@ as $$
   <p><b>{{customer_name}}</b> has rejected quote <b>{{quote_number}}</b>.</p>
   <p><b>Reason:</b> {{reason}}</p>
   <p><a href="{{link}}" style="display:inline-block;background:#f97316;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">View Quote</a></p>
-  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}} in Association with Global Bus Rental Worldwide Group Transport</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}}</p>
 </div>$q$
     ),
     (
@@ -96,7 +96,7 @@ as $$
      <b>Date:</b> {{pickup_date}} {{pickup_time}}<br />
      <b>Passengers:</b> {{passenger_count}}</p>
   <p><a href="{{link}}" style="display:inline-block;background:#f97316;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">View &amp; Respond</a></p>
-  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}} in Association with Global Bus Rental Worldwide Group Transport</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}}</p>
 </div>$q$
     ),
     (
@@ -105,7 +105,7 @@ as $$
       $q$<div style="font-family: Arial, sans-serif; color: #1e293b; line-height: 1.6;">
   <p><b>{{supplier_name}}</b> has accepted the job for quote <b>{{quote_number}}</b>.</p>
   <p><a href="{{link}}" style="display:inline-block;background:#f97316;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">View Job</a></p>
-  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}} in Association with Global Bus Rental Worldwide Group Transport</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}}</p>
 </div>$q$
     ),
     (
@@ -114,7 +114,7 @@ as $$
       $q$<div style="font-family: Arial, sans-serif; color: #1e293b; line-height: 1.6;">
   <p><b>{{supplier_name}}</b> has declined the job for quote <b>{{quote_number}}</b>.</p>
   <p><a href="{{link}}" style="display:inline-block;background:#f97316;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">View Job</a></p>
-  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}} in Association with Global Bus Rental Worldwide Group Transport</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}}</p>
 </div>$q$
     ),
     (
@@ -123,7 +123,7 @@ as $$
       $q$<div style="font-family: Arial, sans-serif; color: #1e293b; line-height: 1.6;">
   <p><b>{{supplier_name}}</b> has submitted an invoice for quote <b>{{quote_number}}</b>: <b>{{currency}} {{amount}}</b>.</p>
   <p><a href="{{link}}" style="display:inline-block;background:#f97316;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">Review Job</a></p>
-  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}} in Association with Global Bus Rental Worldwide Group Transport</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}}</p>
 </div>$q$
     ),
     (
@@ -140,7 +140,7 @@ as $$
      <b>Vehicle requested:</b> {{vehicle_requested}}</p>
   <p>{{notes}}</p>
   <p><a href="{{link}}" style="display:inline-block;background:#f97316;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">View My Leads</a></p>
-  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}} in Association with Global Bus Rental Worldwide Group Transport</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}}</p>
 </div>$q$
     ),
     (
@@ -152,7 +152,7 @@ as $$
   <p><a href="{{link}}" style="display:inline-block;background:#f97316;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">Share Your Feedback</a></p>
   <p style="color:#64748b;font-size:13px;">If the button does not work, copy and paste this link: {{link}}</p>
   <p>Thanks,<br />{{brand_name}}</p>
-  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}} in Association with Global Bus Rental Worldwide Group Transport</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">{{brand_name}}</p>
 </div>$q$
     )
 $$;

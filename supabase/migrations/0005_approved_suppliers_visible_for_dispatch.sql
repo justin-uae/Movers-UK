@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Phase 2.5 follow-up
+-- Cheap Mover CRM — Phase 2.5 follow-up
 --
 -- Dispatch showed "No approved suppliers" for any user without a
 -- suppliers.* permission (e.g. Sales User dispatching their own paid job) —

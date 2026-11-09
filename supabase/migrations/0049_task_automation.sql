@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Automated task creation (TSK-02).
+-- Cheap Mover CRM — Automated task creation (TSK-02).
 --
 -- Adds a `source` tag to tasks so the new /api/cron/task-automation sweep can
 -- dedup against its own previously-created tasks (a manually created task

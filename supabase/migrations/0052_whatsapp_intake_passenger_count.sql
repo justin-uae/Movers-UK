@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Passenger count for the WhatsApp guided lead intake.
+-- Cheap Mover CRM — Passenger count for the WhatsApp guided lead intake.
 --
 -- Adds a step between pickup/destination and the travel date question — the
 -- CRM's own manual lead/enquiry forms already treat passenger count as a

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — per-feature AI model selection.
+-- Cheap Mover CRM — per-feature AI model selection.
 --
 -- Every AI call in the CRM used to be hardcoded to OpenAI. This lets Master
 -- Admin pick a different provider/model per feature (Settings -> AI Models)

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Quote payments: deposits, partial payments, Stripe.
+-- Cheap Mover CRM — Quote payments: deposits, partial payments, Stripe.
 --
 -- Replaces the unused multi-select deposit_options/payment_methods toggles
 -- with a single full-payment-vs-one-deposit-percentage choice per quote

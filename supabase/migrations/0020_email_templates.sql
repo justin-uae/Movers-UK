@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Transactional email templates.
+-- Cheap Mover CRM — Transactional email templates.
 --
 -- Seven fixed, per-tenant, editable templates (subject + HTML body with
 -- {{variable}} placeholders substituted at send time by

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Quote pricing depth (P1: QTE-03 fixed-amount
+-- Cheap Mover CRM — Quote pricing depth (P1: QTE-03 fixed-amount
 -- deposit, QTE-04 payment milestones, FIN-02 itemised extras).
 --
 -- QTE-03 adds a fixed-amount alternative to the existing 25/50/75% deposit

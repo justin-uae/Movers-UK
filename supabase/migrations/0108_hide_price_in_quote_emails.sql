@@ -297,7 +297,7 @@ as $$
       'staff_invited',
       'You''re invited to join {{brand_name}}',
       $q$<p>Hi {{user_name}},</p>
-<p>You've been invited to join the {{brand_name}} team on Global Transport CRM.</p>
+<p>You've been invited to join the {{brand_name}} team.</p>
 <p>Set your password to finish setting up your account and sign in:</p>
 <p><a href="{{link}}" style="display:inline-block;background:#f97316;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">Set Password &amp; Log In</a></p>
 <p style="color:#64748b;font-size:13px;">If the button does not work, copy and paste this link: {{link}}</p>
@@ -307,7 +307,7 @@ as $$
       'supplier_invited',
       'You''re invited to join {{brand_name}}''s supplier network',
       $q$<p>Hi {{supplier_name}},</p>
-<p>You've been invited to join the {{brand_name}} supplier network on Global Transport CRM.</p>
+<p>You've been invited to join the {{brand_name}} supplier network.</p>
 <p>Set your password to finish setting up your account and start receiving job offers:</p>
 <p><a href="{{link}}" style="display:inline-block;background:#f97316;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">Set Password &amp; Log In</a></p>
 <p style="color:#64748b;font-size:13px;">If the button does not work, copy and paste this link: {{link}}</p>

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Payment-proof attachment for customer payments.
+-- Cheap Mover CRM — Payment-proof attachment for customer payments.
 --
 -- Mirrors the supplier side (0012_supplier_payment_proof.sql) exactly: a
 -- quote transitions accepted -> paid exactly once (no partial-payment ledger

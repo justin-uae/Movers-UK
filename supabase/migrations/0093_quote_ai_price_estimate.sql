@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — AI-estimated price for a quote, computed on demand
+-- Cheap Mover CRM — AI-estimated price for a quote, computed on demand
 -- (Master Admin only, see estimateQuotePriceAction in
 -- app/(staff)/quotes/actions.ts and lib/aiPriceEstimate.ts) from the
 -- journey's own details, purely as an internal pricing benchmark against

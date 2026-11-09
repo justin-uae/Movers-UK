@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — allow email_lead_intake_log.decision to record
+-- Cheap Mover CRM — allow email_lead_intake_log.decision to record
 -- "discarded_duplicate", for when the email sweep (lib/emailLeadIntake.ts)
 -- recognises a forwarded copy of an enquiry that already created a lead
 -- through another channel (e.g. a site's own contact-form webhook posts

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Email Lead Intake.
+-- Cheap Mover CRM — Email Lead Intake.
 --
 -- 300+ transport-hire websites forward their contact-form enquiries into one
 -- shared inbox. A new cron sweep (app/api/cron/email-lead-intake/route.ts,
@@ -14,9 +14,8 @@
 --
 -- Every email-intake lead lands on one fixed brand (the user's choice, over
 -- trying to auto-match one of 300+ sites from email content alone) —
--- default_lead_inbox_brand_id, backfilled below to whichever brand looks
--- like the company's own "GLOBAL BUS RENTAL LIMITED" entity (see
--- 0061_rename_brand_global_bus_rental.sql). Re-point it from Settings ->
+-- default_lead_inbox_brand_id, backfilled below to the tenant's first
+-- brand. Re-point it from Settings ->
 -- Companies & Brands data if that guess is wrong for your tenant.
 -- =============================================================================
 
@@ -25,7 +24,7 @@ alter table tenants add column default_lead_inbox_brand_id uuid references brand
 update tenants t
 set default_lead_inbox_brand_id = (
   select b.id from brands b
-  where b.tenant_id = t.id and b.name ilike '%global bus rental%'
+  where b.tenant_id = t.id
   order by b.created_at asc
   limit 1
 );

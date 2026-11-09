@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Real Team Chat module (Part 24, §151, projectContext.md).
+-- Cheap Mover CRM — Real Team Chat module (Part 24, §151, projectContext.md).
 --
 -- Public tenant-wide channels + direct messages, modeled as one schema: a DM
 -- is just a private 2-person chat_channels row. Text messages with one

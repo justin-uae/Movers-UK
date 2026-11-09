@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Backfill luggage count on enquiries created before
+-- Cheap Mover CRM — Backfill luggage count on enquiries created before
 -- the fix.
 --
 -- createEnquiryFromLeadAction (app/(staff)/leads/actions.ts) only started

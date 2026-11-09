@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Service ops: booking cancellation + refunds,
+-- Cheap Mover CRM — Service ops: booking cancellation + refunds,
 -- complaints, incidents (P1 OPS-01..04).
 --
 -- Three genuinely greenfield workflows, following the same shape as the

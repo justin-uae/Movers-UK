@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Real Attendance module (Part 19, projectContext.md).
+-- Cheap Mover CRM — Real Attendance module (Part 19, projectContext.md).
 --
 -- Append-only clock event log, mirroring login_history's exact shape and RLS
 -- (0001_foundation.sql:216-228,430-433) — current status and shift duration

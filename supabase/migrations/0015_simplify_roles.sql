@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Collapse the role catalog down to exactly 4 roles:
+-- Cheap Mover CRM — Collapse the role catalog down to exactly 4 roles:
 -- Master Admin, Sales User, Finance Manager, Read-Only User.
 --
 -- Permission KEYS drive every RLS policy and hasPermission() check in the

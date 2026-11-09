@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Structured WhatsApp lead intake.
+-- Cheap Mover CRM — Structured WhatsApp lead intake.
 --
 -- The first cut of the 360dialog webhook (no migration needed) created a
 -- lead straight from whatever text a contact's first message contained.

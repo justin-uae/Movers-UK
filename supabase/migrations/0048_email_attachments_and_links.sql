@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Email attachments + CRM record linking (P1: EML-01,
+-- Cheap Mover CRM — Email attachments + CRM record linking (P1: EML-01,
 -- EML-03, EML-04).
 --
 -- EML-04: email_messages gains the same nullable-FK linking-column trio

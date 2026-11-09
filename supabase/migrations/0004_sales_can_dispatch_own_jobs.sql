@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Phase 2.5 follow-up
+-- Cheap Mover CRM — Phase 2.5 follow-up
 --
 -- The original permission seed (0001) gave dispatch.* only to Operations
 -- roles, on the assumption a separate ops team handles supplier assignment.

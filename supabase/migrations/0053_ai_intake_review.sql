@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — AI-04: link a Complex Booking's source file/email
+-- Cheap Mover CRM — AI-04: link a Complex Booking's source file/email
 -- into the real `documents` table instead of only referencing it inside
 -- leads.raw_payload jsonb.
 --

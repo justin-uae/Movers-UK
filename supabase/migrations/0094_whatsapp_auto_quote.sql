@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — WhatsApp Auto-Quote.
+-- Cheap Mover CRM — WhatsApp Auto-Quote.
 --
 -- A second, separate on/off switch alongside AI Assistant's SLA-breach sweep
 -- (0087_ai_auto_quote.sql) — when enabled, a lead captured over WhatsApp

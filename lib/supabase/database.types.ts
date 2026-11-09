@@ -36,7 +36,7 @@ export interface Tenant {
   quote_reminders_enabled_at: string | null;
   /** Default number of days a new quote stays valid (New Quote form default, and every AI-sent quote) — Settings -> Bank Details & Terms. Default 30. See 0104_quote_validity_days.sql. */
   quote_validity_days: number;
-  /** Every lead the email-lead-intake sweep creates lands on this brand — set once (backfilled to the tenant's "GLOBAL BUS RENTAL LIMITED" brand, see 0088_email_lead_intake.sql) since 300+ forwarded sites can't be reliably attributed from email content alone. Null disables the sweep for this tenant entirely. */
+  /** Every lead the email-lead-intake sweep creates lands on this brand — set once (backfilled to the tenant's first brand, see 0088_email_lead_intake.sql) since 300+ forwarded sites can't be reliably attributed from email content alone. Null disables the sweep for this tenant entirely. */
   default_lead_inbox_brand_id: string | null;
   /** Master-Admin-only per-feature AI provider/model picks (Settings -> AI Models, see 0098_ai_model_settings.sql and lib/aiProviders.ts) — keyed by AiFeatureKey ("whatsapp_intake" | "pricing_engine" | "email_intake" | "complex_booking"), each value an {provider, model}. A missing key falls back to OpenAI/gpt-5.5 in code. */
   ai_model_settings: Record<string, { provider: string; model: string }>;

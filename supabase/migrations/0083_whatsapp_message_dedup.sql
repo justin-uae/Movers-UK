@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — WhatsApp inbound message de-duplication.
+-- Cheap Mover CRM — WhatsApp inbound message de-duplication.
 --
 -- 360dialog/Meta's Cloud API webhook is at-least-once, not exactly-once — the
 -- same inbound message can be POSTed to our webhook more than once. The AI

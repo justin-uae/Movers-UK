@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Supplier invoice upload + sales -> accountant handoff
+-- Cheap Mover CRM — Supplier invoice upload + sales -> accountant handoff
 --
 -- Once a supplier has confirmed a job, they can upload their own invoice
 -- (amount + file), editable until a staff member forwards it on to

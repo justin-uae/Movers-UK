@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — record which AI provider/model actually priced each
+-- Cheap Mover CRM — record which AI provider/model actually priced each
 -- AI-generated quote.
 --
 -- quotes.ai_generated (existing) only says "AI created this", not which

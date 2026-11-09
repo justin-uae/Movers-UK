@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Keep Master Admin / Administrator roles evergreen
+-- Cheap Mover CRM — Keep Master Admin / Administrator roles evergreen
 --
 -- seed_tenant_defaults() grants every permission in the catalog to a new
 -- tenant's Master Admin and Administrator roles at creation time

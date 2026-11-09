@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Real Tasks module (Part 24, §152, projectContext.md).
+-- Cheap Mover CRM — Real Tasks module (Part 24, §152, projectContext.md).
 --
 -- A tenant-wide task tracker: title/description, priority, due date, a
 -- single assignee, an inline checklist, and an optional link to one

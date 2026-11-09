@@ -1,10 +1,9 @@
-# Global Transport CRM
+# Cheap Mover CRM
 
-Enterprise CRM for coach, minibus, bus, airport transfer and chauffeur
-transport operations. Full requirements: [`projectContext.md`](projectContext.md).
-Build plan: `docs/` (see the plan saved in this session) — Phase 1
-(Foundation: tenants, companies, brands, users, roles, permissions, audit)
-is implemented here; later phases follow the roadmap.
+CRM for [Cheap Mover](https://www.cheapmover.co.uk) — house removals, man and
+van, office relocation, packing and storage. Business name, contact details,
+logo and locale defaults (GBP, Europe/London, en-GB) all live in
+[`lib/brandConfig.ts`](lib/brandConfig.ts).
 
 ## Stack
 
@@ -44,9 +43,10 @@ scripts/
 ## Local setup
 
 1. Create a Supabase project.
-2. Apply the migration: open the SQL editor and run
-   `supabase/migrations/0001_foundation.sql` (or `supabase db push` if you use
-   the Supabase CLI with this repo linked).
+2. Apply **every** migration in `supabase/migrations/`, in filename order
+   (`supabase db push` if you use the Supabase CLI with this repo linked).
+   Run all migrations on the empty database BEFORE running
+   `scripts/bootstrap-master-admin.mjs` (or `bootstrap-admin.mjs`).
 3. Copy `.env.local.example` to `.env.local` and fill in the Supabase URL,
    anon key and service role key from **Project Settings → API**.
 4. In **Authentication → Email Templates**:
@@ -78,9 +78,9 @@ scripts/
    and invites the admin — no plaintext password is ever generated):
    ```bash
    node --env-file=.env.local scripts/bootstrap-admin.mjs \
-     --tenant "Global Transport CRM" \
-     --company "Global Bus Rental Ltd" \
-     --brand "Global Bus Rental" \
+     --tenant "Cheap Mover CRM" \
+     --company "Cheap Mover" \
+     --brand "Cheap Mover" \
      --name "Your Name" \
      --email you@example.com
    ```
@@ -116,7 +116,7 @@ SMTP_HOST=smtp.sendgrid.net
 SMTP_PORT=587
 SMTP_USER=apikey                  # literally the string "apikey"
 SMTP_PASS=<your SendGrid API key>
-SMTP_FROM="Global Transport CRM <bookings@globalbusrental.com>"
+SMTP_FROM="Cheap Mover <bookings@cheapmover.co.uk>"
 ```
 `SMTP_FROM`'s address must be on a domain you've completed **Domain
 Authentication** for in SendGrid (Settings → Sender Authentication), or

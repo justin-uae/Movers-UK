@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — grant the AI role enquiries.claim_open_leads so it
+-- Cheap Mover CRM — grant the AI role enquiries.claim_open_leads so it
 -- shows up in the "Assign to" dropdown (lib/leadAssignees.ts's
 -- getAssignableSalesUsers, permission-driven, not a hardcoded role list) the
 -- same way any Sales User does. The AI Auto-Quote sweep itself always runs

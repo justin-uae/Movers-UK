@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { createAdminClient } from "./supabase/admin";
 import type { Brand, Profile } from "./supabase/database.types";
 
-const ACTIVE_BRAND_COOKIE = "gtc_active_brand";
+const ACTIVE_BRAND_COOKIE = "cm_active_brand";
 
 /** Tag for a user's cached brand list — bust when their user_brands rows change. */
 export const brandsUserTag = (userId: string) => `brands:${userId}`;

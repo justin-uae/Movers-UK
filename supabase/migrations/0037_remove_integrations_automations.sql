@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Remove Integrations/Automations.
+-- Cheap Mover CRM — Remove Integrations/Automations.
 --
 -- Both were empty placeholder pages (ModulePlaceholder, never built out) —
 -- removed from the sidebar, the routes deleted, and now their permission

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Phase 1 (Foundation)
+-- Cheap Mover CRM — Phase 1 (Foundation)
 -- Tenants, companies, brands, org structure, users/roles/permissions,
 -- territories, audit log, login history, and the RLS pattern reused by
 -- every later phase.

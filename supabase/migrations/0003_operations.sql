@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Phase 2.5 (Real operating flow adjustments)
+-- Cheap Mover CRM — Phase 2.5 (Real operating flow adjustments)
 -- Region-based user assignment (replacing unused Territories for routing),
 -- lead->quote fast path support, bank accounts + manual payment/invoice,
 -- suppliers (entity + self-service verification + approval), and manual

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — BCC support for staff-sent email.
+-- Cheap Mover CRM — BCC support for staff-sent email.
 --
 -- cc_addresses already existed (0022_email_accounts.sql); bcc was never
 -- built. Unlike CC, a BCC recipient is deliberately never shown back to

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Finance Manager should always be able to both
+-- Cheap Mover CRM — Finance Manager should always be able to both
 -- record a customer payment AND verify a bank transfer, not just one or the
 -- other. finance.record_payments has been on this role since it was first
 -- seeded, but finance.verify_bank_transfers (added by PAY-04) evidently

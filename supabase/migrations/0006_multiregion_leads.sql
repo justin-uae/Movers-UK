@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Multi-region users + lead unclaim
+-- Cheap Mover CRM — Multi-region users + lead unclaim
 --
 -- 1. Replaces profiles.region (single free-text value, 0003_operations.sql)
 --    with user_regions — a user can now cover several regions. A lead whose

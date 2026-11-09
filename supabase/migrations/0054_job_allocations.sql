@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — BKG-02: multi-supplier / multi-vehicle dispatch.
+-- Cheap Mover CRM — BKG-02: multi-supplier / multi-vehicle dispatch.
 --
 -- Today a `jobs` row is 1:1 with a `quotes` row and has exactly one
 -- `assigned_supplier_id` — even a multi-leg, multi-day booking (many

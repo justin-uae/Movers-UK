@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Sales User can see supplier payment history on a
+-- Cheap Mover CRM — Sales User can see supplier payment history on a
 -- job they can already view.
 --
 -- jobs_select and job_supplier_invoices_select both already let a

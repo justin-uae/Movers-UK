@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Supplier sees full job logistics as soon as it's
+-- Cheap Mover CRM — Supplier sees full job logistics as soon as it's
 -- offered, not only once confirmed.
 --
 -- Previously pickup/destination address stayed null until job status

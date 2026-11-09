@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — AI Auto-Quote.
+-- Cheap Mover CRM — AI Auto-Quote.
 --
 -- If a lead sits unquoted for longer than a configurable number of business
 -- hours (Monday-Saturday; the clock only pauses on Sundays), an automated sweep

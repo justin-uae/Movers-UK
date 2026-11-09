@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Finance can actually mark a quote as paid.
+-- Cheap Mover CRM — Finance can actually mark a quote as paid.
 --
 -- 0009 extended quotes_select (and related select policies) so finance
 -- roles can view accepted/paid quotes on the Customer Payments page, but

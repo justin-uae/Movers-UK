@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Multi-supplier dispatch (first-accept-wins)
+-- Cheap Mover CRM — Multi-supplier dispatch (first-accept-wins)
 --
 -- Splits job assignment into two layers:
 --   jobs          aggregate state (unassigned/offered/accepted_by_supplier/...)

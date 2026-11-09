@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Real KPIs & Targets module (Part 18/22, §119 + §148,
+-- Cheap Mover CRM — Real KPIs & Targets module (Part 18/22, §119 + §148,
 -- projectContext.md).
 --
 -- Individual, monthly targets across four metrics computable from existing

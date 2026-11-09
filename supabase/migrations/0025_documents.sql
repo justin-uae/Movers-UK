@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Real Documents module (Part 23, projectContext.md).
+-- Cheap Mover CRM — Real Documents module (Part 23, projectContext.md).
 --
 -- A general document library: upload, categorize, optionally link to one
 -- customer/supplier/quote record, search, download, delete. Deliberately

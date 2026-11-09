@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Sales User can create suppliers and see who to
+-- Cheap Mover CRM — Sales User can create suppliers and see who to
 -- assign their own jobs to.
 --
 -- Two things were blocking this (job-ownership dispatch already worked —

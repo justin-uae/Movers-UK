@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — grant the AI role visibility into the Confirmed/
+-- Cheap Mover CRM — grant the AI role visibility into the Confirmed/
 -- Lost/Completed Booking tabs (nav.ts), but scoped to its OWN bookings only.
 --
 -- bookings.view (used by Sales User/Finance/Read-Only) has no "own" concept

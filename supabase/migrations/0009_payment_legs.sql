@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Two independent payment legs on a job
+-- Cheap Mover CRM — Two independent payment legs on a job
 --
 -- customer -> company: existing quotes.status = 'paid' flip (markQuotePaidAction),
 --   now gated behind finance.record_payments at the app layer (see

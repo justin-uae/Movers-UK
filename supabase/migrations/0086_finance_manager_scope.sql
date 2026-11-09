@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — Narrow Finance Manager's scope.
+-- Cheap Mover CRM — Narrow Finance Manager's scope.
 --
 -- Finance Manager previously held finance.view_commissions and
 -- finance.view_profit (unlocking the Commissions and Business Intelligence

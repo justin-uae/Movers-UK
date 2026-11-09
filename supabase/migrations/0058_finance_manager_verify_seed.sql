@@ -1,5 +1,5 @@
 -- =============================================================================
--- Global Transport CRM — 0050_service_ops.sql's Finance Manager array
+-- Cheap Mover CRM — 0050_service_ops.sql's Finance Manager array
 -- dropped finance.verify_bank_transfers entirely (along with several other
 -- permissions, as part of that pass's role simplification) — so even a
 -- brand-new tenant created today would hit the same "recorded it but can't

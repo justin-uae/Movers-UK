@@ -10,9 +10,9 @@
 -- =============================================================================
 
 alter table profiles
-  add column if not exists signature_switchboard text default '+44 20 3834 3211',
-  add column if not exists signature_emergency_email text default 'contact@globalbusrental.com',
-  add column if not exists signature_website text default 'www.globalbusrental.com',
+  add column if not exists signature_switchboard text default '+44 330 113 2111',
+  add column if not exists signature_emergency_email text default 'contact@cheapmover.co.uk',
+  add column if not exists signature_website text default 'www.cheapmover.co.uk',
   add column if not exists signature_logo_url text;
 
 insert into storage.buckets (id, name, public) values ('signature-assets', 'signature-assets', true)
