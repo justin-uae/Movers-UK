@@ -119,10 +119,10 @@ export function pickMoveDetails(source: MoveDetails): MoveDetails {
 }
 
 /** Choices for the move-type dropdown — matches the website quote form, plus the other services the company offers. */
-export const MOVE_TYPES = ["House removal", "Flat removal", "Man and van", "Office relocation", "Packing service", "Storage", "International move"];
+export const MOVE_TYPES = ["House removal", "Flat removal", "Man and van", "Office relocation", "Packing service", "Storage", "International relocation"];
 
 /** Choices for the property-type dropdown. */
-export const PROPERTY_TYPES = ["House", "Flat", "Bungalow", "Maisonette", "Office", "Storage unit", "Other"];
+export const PROPERTY_TYPES = ["House", "Flat or apartment", "Bungalow", "Maisonette", "Office", "Storage unit", "Other"];
 
 /**
  * Reads move details posted as one JSON string (MoveDetailsEditor's

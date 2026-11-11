@@ -96,6 +96,11 @@ Verification is off until `RECAPTCHA_SECRET_KEY` (the secret key of the
 same reCAPTCHA v2 site key the form uses) is set on the CRM. After that,
 every submission must include a valid `recaptchaToken`.
 
+**The Cheap Mover website already verifies reCAPTCHA itself** (in
+`submit.php`) before forwarding the lead (`public/crm-lead.php`), and a
+token can only be verified once — so leave `RECAPTCHA_SECRET_KEY` unset on
+the CRM while the website posts through `submit.php`.
+
 ## Contact form
 
 The general contact form uses the same endpoint with `"formType": "contact"`
