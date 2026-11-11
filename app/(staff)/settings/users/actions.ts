@@ -360,8 +360,16 @@ export async function upsertEmailAccountAction(userId: string, data: EmailAccoun
     .eq("user_id", userId)
     .maybeSingle();
 
-  const imapPasswordEnc = data.imapPassword ? encryptSecret(data.imapPassword) : existing?.imap_password_enc;
-  const smtpPasswordEnc = data.smtpPassword ? encryptSecret(data.smtpPassword) : existing?.smtp_password_enc;
+  // encryptSecret throws when EMAIL_CREDENTIALS_KEY is missing/invalid —
+  // return that as a form error instead of crashing the whole page.
+  let imapPasswordEnc: string | undefined;
+  let smtpPasswordEnc: string | undefined;
+  try {
+    imapPasswordEnc = data.imapPassword ? encryptSecret(data.imapPassword) : existing?.imap_password_enc;
+    smtpPasswordEnc = data.smtpPassword ? encryptSecret(data.smtpPassword) : existing?.smtp_password_enc;
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Mailbox credentials could not be encrypted." };
+  }
   if (!imapPasswordEnc || !smtpPasswordEnc) {
     return { error: "IMAP and SMTP passwords are required." };
   }
