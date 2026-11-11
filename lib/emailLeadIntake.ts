@@ -10,6 +10,7 @@ import { recordAudit } from "./audit";
 import { resolveCustomerId, notifyIfAutoAssigned } from "./leadIntake";
 import { formatDateAndTime } from "./formatDate";
 import { instantAutoQuoteNewLead } from "./aiAutoQuote";
+import { moveDetailsSummary, pickMoveDetails, MOVE_DETAILS_EXTRACTION_KEYS, MOVE_DETAILS_EXTRACTION_PROPERTIES, type MoveDetails } from "./moveDetails";
 
 type Admin = SupabaseClient<Database>;
 
@@ -21,20 +22,20 @@ function describeImapError(err: unknown): string {
   return [err.message, responseStatus, responseText].filter(Boolean).join(" — ");
 }
 
-// Email Lead Intake — 300+ transport-hire websites forward their contact-
+// Email Lead Intake — the company's websites forward their contact-
 // form enquiries into one shared inbox (not per-site, not per-brand). This
 // sweep (runEmailLeadIntakeSweep, called hourly by
 // app/api/cron/email-lead-intake/route.ts) polls that inbox over IMAP
 // (imapflow + mailparser — same mechanism as the per-user Email Centre sync,
 // app/api/cron/email-sync/route.ts), has AI decide whether each message
-// is a genuine travel/transport enquiry, and creates a `leads` row for the
+// is a genuine removals/moving enquiry, and creates a `leads` row for the
 // genuine ones. Spam/irrelevant mail is neither turned into a lead nor
 // stored anywhere beyond a one-line dedup/audit entry (per the user's
 // explicit choice) — every message is logged once by its Message-ID so a
 // re-scanned inbox never processes the same email twice.
 //
-// A genuine enquiry's trip details sometimes live in an attached file
-// rather than (or in addition to) the email body — a forwarded itinerary,
+// A genuine enquiry's move details sometimes live in an attached file
+// rather than (or in addition to) the email body — a forwarded inventory,
 // a screenshot of a booking form, a quote-request PDF/Word doc. Real
 // (non-inline) image/PDF/.docx attachments are read the same way Complex
 // Booking reads an uploaded document (lib/complexBookingExtraction.ts) and
@@ -60,76 +61,48 @@ const MAX_LOOKBACK_DAYS = 7;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const asPgTime = (value: string | null) => (value && /^\d{2}:\d{2}(:\d{2})?$/.test(value) ? value : null);
 
-interface EnquiryExtraction {
-  is_travel_enquiry: boolean;
+interface EnquiryExtraction extends MoveDetails {
+  is_move_enquiry: boolean;
   name: string | null;
   email: string | null;
   phone: string | null;
   pickup: string | null;
   destination: string | null;
-  travel_date: string | null;
-  pickup_time: string | null;
-  return_trip: boolean;
-  return_date: string | null;
-  return_time: string | null;
-  passenger_count: number | null;
+  move_date: string | null;
+  move_time: string | null;
   notes: string | null;
 }
 
 const EXTRACTION_SCHEMA = {
   type: "object",
   properties: {
-    is_travel_enquiry: {
+    is_move_enquiry: {
       type: "boolean",
       description:
-        "True only if this email is a genuine customer enquiry about hiring a coach, minibus or other private transport. False for spam, marketing/newsletters, automated bounces/out-of-office replies, phishing, job applications, supplier/vendor pitches, or any other email that isn't a transport-hire enquiry from a customer.",
+        "True only if this email is a genuine customer enquiry about a removal or move — house/flat removal, man and van, office relocation, packing, storage or international moving. False for spam, marketing/newsletters, automated bounces/out-of-office replies, phishing, job applications, supplier/vendor pitches, or any other email that isn't a moving enquiry from a customer.",
     },
     name: { type: ["string", "null"], description: "The enquirer's name, if given." },
     email: { type: ["string", "null"], description: "The enquirer's own email address to reply to — read this from the message body/signature if the visible \"From\" header looks like a forwarding/no-reply address rather than the actual customer." },
     phone: { type: ["string", "null"] },
-    pickup: { type: ["string", "null"], description: "Pickup location, in the customer's own words." },
-    destination: { type: ["string", "null"], description: "Destination, in the customer's own words." },
-    travel_date: {
+    pickup: { type: ["string", "null"], description: "The address or postcode being moved FROM, in the customer's own words." },
+    destination: { type: ["string", "null"], description: "The address or postcode being moved TO, in the customer's own words." },
+    move_date: {
       type: ["string", "null"],
       description:
-        "The travel date, resolved to an explicit calendar date if you can work it out from the email's own date (given in your instructions) plus what the customer wrote — otherwise their raw wording.",
+        "The preferred move date, resolved to an explicit calendar date (YYYY-MM-DD) if you can work it out from the email's own date (given in your instructions) plus what the customer wrote — otherwise their raw wording.",
     },
-    pickup_time: {
+    move_time: {
       type: ["string", "null"],
-      description: "The outbound departure time, resolved to 24-hour HH:MM if the customer gave one (e.g. \"19:00\" for \"approximately 7pm\"). Null if no time was mentioned.",
+      description: "A preferred start time, resolved to 24-hour HH:MM if the customer gave one (e.g. \"08:00\" for \"first thing, around 8\"). Null if no time was mentioned.",
     },
-    return_trip: { type: "boolean", description: "True if a return leg is mentioned at all." },
-    return_date: { type: ["string", "null"] },
-    return_time: {
-      type: ["string", "null"],
-      description: "The return leg's departure time, resolved to 24-hour HH:MM the same way as pickup_time. Null if there's no return leg or no time was given for it.",
-    },
-    passenger_count: {
-      type: ["integer", "null"],
-      description:
-        "How many passengers. If the customer asks for pricing across several possible group/coach sizes (e.g. \"30, 40, or 54 passengers\", \"either a 30 or 40 seater\"), use the LARGEST one here — that's the safer number for vehicle-sizing and pricing — and list every size they asked about in notes so nothing is lost.",
-    },
+    ...MOVE_DETAILS_EXTRACTION_PROPERTIES,
     notes: {
       type: ["string", "null"],
       description:
-        "Anything else relevant that doesn't fit the other fields — vehicle type/size options (list ALL of them if several were requested, not just the one in passenger_count), intermediate stops/waypoints along the route, occasion, and any special requirements. Preserve real detail rather than summarizing it away — for a detailed enquiry, err on the side of including too much rather than too little, since this is the only place that detail survives. Format for readability: short lead-in sentence(s) first, then — whenever you're listing more than one distinct item (vehicle options, stops, requirements) — put each on its own line starting with \"- \", with a blank line before the list. Never run several items together in one long sentence.",
+        "Anything else relevant that doesn't fit the other fields — large or awkward items (piano, wardrobes, American fridge), the inventory if one is given, parking/permit and access restrictions, key-collection timing, and any special requirements. Preserve real detail rather than summarizing it away — this is the only place that detail survives. Format for readability: short lead-in sentence(s) first, then — whenever you're listing more than one distinct item — put each on its own line starting with \"- \", with a blank line before the list.",
     },
   },
-  required: [
-    "is_travel_enquiry",
-    "name",
-    "email",
-    "phone",
-    "pickup",
-    "destination",
-    "travel_date",
-    "pickup_time",
-    "return_trip",
-    "return_date",
-    "return_time",
-    "passenger_count",
-    "notes",
-  ],
+  required: ["is_move_enquiry", "name", "email", "phone", "pickup", "destination", "move_date", "move_time", ...MOVE_DETAILS_EXTRACTION_KEYS, "notes"],
   additionalProperties: false,
 } as const;
 
@@ -142,7 +115,7 @@ interface EmailAttachment {
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 // Bounds how many attachments get sent to the AI per email — a forwarded
 // thread can carry a dozen inline logos/signature images alongside the one
-// real itinerary file; this is plenty for the realistic case (one quote
+// real inventory file; this is plenty for the realistic case (one quote
 // request document, maybe a couple of photos) without one unusual email
 // blowing up a single AI call's cost/latency.
 const MAX_SCANNED_ATTACHMENTS = 3;
@@ -182,10 +155,10 @@ async function classifyEnquiryEmail(
     provider: aiModel.provider,
     model: aiModel.model,
     instructions:
-      `You are screening inbound emails forwarded from company transport-hire websites into one shared inbox. This ` +
+      `You are screening inbound emails forwarded from a UK removals company's websites into one shared inbox. This ` +
       `email's own date is ${emailDateIso} — use that as "today" when resolving relative dates. Decide whether it's a ` +
-      `genuine customer enquiry, and if so extract whatever trip details are actually present — from the email text ` +
-      `AND from any attached image/document included below, which may be where the real itinerary or quote request ` +
+      `genuine customer moving enquiry, and if so extract whatever move details are actually present — from the email text ` +
+      `AND from any attached image/document included below, which may be where the real inventory or quote request ` +
       `actually lives (the email body itself is sometimes just "see attached"). Never invent a value that isn't ` +
       `there — leave a field null rather than guess, since there's no way to ask this sender a follow-up question.`,
     content: [{ type: "text", text: `Subject: ${subject}\n\n${bodyText}`.slice(0, 8000) }, ...attachmentParts],
@@ -204,7 +177,7 @@ async function classifyEnquiryEmail(
 }
 
 interface ProcessResult {
-  decision: "lead_created" | "discarded_not_travel" | "discarded_no_contact" | "discarded_duplicate" | "error";
+  decision: "lead_created" | "discarded_not_move" | "discarded_no_contact" | "discarded_duplicate" | "error";
   leadId?: string;
   detail?: string;
 }
@@ -235,10 +208,10 @@ function looksLikeSamePlace(a: string | null, b: string | null): boolean {
  * pair — the main case this function exists for — could never match.
  *
  * Matched on the SAME customer (resolveCustomerId already dedupes identity
- * by email/phone across every channel) plus overlapping trip details (same
- * travel date, or either pickup/destination looking like the same place) —
+ * by email/phone across every channel) plus overlapping move details (same
+ * move date, or either pickup/destination looking like the same place) —
  * customer alone isn't enough, since a repeat customer asking about a
- * genuinely different trip within the lookback window must still get its
+ * genuinely different move within the lookback window must still get its
  * own lead.
  */
 async function findRecentDuplicateLead(
@@ -256,7 +229,7 @@ async function findRecentDuplicateLead(
     .gte("created_at", since);
 
   for (const lead of candidates ?? []) {
-    const sameDate = Boolean(extraction.travel_date && lead.travel_date && extraction.travel_date === lead.travel_date);
+    const sameDate = Boolean(extraction.move_date && lead.travel_date && extraction.move_date === lead.travel_date);
     if (sameDate || looksLikeSamePlace(extraction.pickup, lead.pickup_text) || looksLikeSamePlace(extraction.destination, lead.destination_text)) {
       return lead.id;
     }
@@ -291,10 +264,10 @@ async function processMessage(
   // An email that's genuinely just "see attached" (near-empty body, real
   // content in the attachment) must still be scanned rather than discarded
   // here as "empty" — only bail out early when there's neither.
-  if (!bodyText && parsed.attachments.length === 0) return { decision: "discarded_not_travel", detail: "Empty body." };
+  if (!bodyText && parsed.attachments.length === 0) return { decision: "discarded_not_move", detail: "Empty body." };
 
   const extraction = await classifyEnquiryEmail(subject, bodyText, (parsed.date ?? new Date()).toISOString(), aiModel, parsed.attachments);
-  if (!extraction.is_travel_enquiry) return { decision: "discarded_not_travel" };
+  if (!extraction.is_move_enquiry) return { decision: "discarded_not_move" };
 
   // The forwarded "From" header is often the forwarding service or a
   // no-reply address, not the actual customer — prefer whatever the AI read
@@ -331,14 +304,11 @@ async function processMessage(
       customer_id: customerId,
       pickup_text: extraction.pickup,
       destination_text: extraction.destination,
-      travel_date: /^\d{4}-\d{2}-\d{2}$/.test(extraction.travel_date ?? "") ? extraction.travel_date : null,
-      pickup_time: asPgTime(extraction.pickup_time),
-      return_trip: extraction.return_trip,
-      return_date: /^\d{4}-\d{2}-\d{2}$/.test(extraction.return_date ?? "") ? extraction.return_date : null,
-      return_time: asPgTime(extraction.return_time),
-      passenger_count: extraction.passenger_count,
+      travel_date: /^\d{4}-\d{2}-\d{2}$/.test(extraction.move_date ?? "") ? extraction.move_date : null,
+      pickup_time: asPgTime(extraction.move_time),
+      ...pickMoveDetails(extraction),
       notes:
-        [extraction.notes, !extraction.travel_date ? null : /^\d{4}-\d{2}-\d{2}$/.test(extraction.travel_date) ? null : `Requested date (as written): ${extraction.travel_date}`]
+        [extraction.notes, !extraction.move_date ? null : /^\d{4}-\d{2}-\d{2}$/.test(extraction.move_date) ? null : `Requested date (as written): ${extraction.move_date}`]
           .filter(Boolean)
           .join(" | ") || null,
       raw_payload: { subject, fromAddress: parsed.fromAddress, extraction },
@@ -362,17 +332,16 @@ async function processMessage(
     source: "Email enquiry",
     pickup: extraction.pickup ?? "Not specified",
     destination: extraction.destination ?? "Not specified",
-    // extraction.travel_date is only a clean ISO date when the AI could resolve
+    // extraction.move_date is only a clean ISO date when the AI could resolve
     // one — otherwise it's the customer's raw wording (e.g. "next Friday"),
     // same distinction the lead's own `notes` field already preserves above
     // — so only run the ISO case through the date formatter, not free text.
-    travel_date: extraction.travel_date
-      ? /^\d{4}-\d{2}-\d{2}$/.test(extraction.travel_date)
-        ? formatDateAndTime(extraction.travel_date, extraction.pickup_time)
-        : extraction.travel_date
+    move_date: extraction.move_date
+      ? /^\d{4}-\d{2}-\d{2}$/.test(extraction.move_date)
+        ? formatDateAndTime(extraction.move_date, extraction.move_time)
+        : extraction.move_date
       : "Not specified",
-    passenger_count: extraction.passenger_count ? String(extraction.passenger_count) : "Not specified",
-    vehicle_requested: "Not specified",
+    move_details: moveDetailsSummary(extraction) || "Not specified",
     notes: extraction.notes ?? "",
   });
 

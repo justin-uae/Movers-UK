@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bus, LayoutDashboard, Inbox, Truck, History, Settings, X } from "lucide-react";
+import { LayoutDashboard, Inbox, Truck, History, Settings, X } from "lucide-react";
 import clsx from "clsx";
 import type { SupplierStatus } from "@/lib/supabase/database.types";
 
@@ -54,7 +54,7 @@ export function SupplierSidebar({
         <div className="flex h-20 items-center justify-between border-b border-white/10 px-6">
           <div className="flex min-w-0 items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-500">
-              <Bus size={22} />
+              <Truck size={22} />
             </div>
             <div className="min-w-0">
               <b className="block truncate text-lg">{supplierName}</b>

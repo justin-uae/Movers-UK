@@ -9,7 +9,7 @@ import { formatDate, formatDateTime } from "@/lib/formatDate";
 import { SOURCE_LABEL } from "@/lib/leadSource";
 import type { QuoteStatus } from "@/lib/supabase/database.types";
 
-export type LeadSortKey = "travel_desc" | "travel_asc";
+export type LeadSortKey = "move_desc" | "move_asc";
 export type LostQuoteSortKey = "decided_desc" | "decided_asc" | "value_desc" | "value_asc";
 export type LostFilterKey = "all" | "expired_leads" | "rejected" | "expired_quotes" | "cancelled";
 
@@ -55,7 +55,6 @@ export interface ExpiredLead {
   destination_text: string | null;
   travel_date: string | null;
   pickup_time: string | null;
-  passenger_count: number | null;
   notes: string | null;
   created_at: string;
   customers: { company_name: string | null; contact_name: string } | null;

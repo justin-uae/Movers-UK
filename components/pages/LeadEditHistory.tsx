@@ -11,7 +11,7 @@ export interface LeadEditRecord {
 }
 
 /**
- * Every past edit to a lead's journey/intake details (see editLeadAction),
+ * Every past edit to a lead's move/intake details (see editLeadAction),
  * with who made it, why, and a field-level diff — shown on the Lead detail
  * page underneath the edit form.
  */

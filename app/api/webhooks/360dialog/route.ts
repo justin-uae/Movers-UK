@@ -5,16 +5,17 @@ import { sendWhatsAppText } from "@/lib/whatsapp360";
 import { reverseGeocode } from "@/lib/reverseGeocode";
 import {
   runIntakeTurn,
-  hasRequiredTripFields,
+  hasRequiredMoveFields,
   mergeCollected,
   handlePostDoneMessage,
   MAX_INTAKE_MESSAGES,
-  type CollectedTrip,
+  type CollectedMove,
   type ConversationMessage,
 } from "@/lib/whatsappAiIntake";
 import { createAndSendQuote, getAiProfileId, LEAD_FOR_SWEEP_COLUMNS, type LeadForSweep } from "@/lib/aiAutoQuote";
 import { getAiModelSetting } from "@/lib/aiProviders";
 import { touchConversationOnInbound } from "@/lib/whatsappConversations";
+import { NO_MOVE_DETAILS, pickMoveDetails } from "@/lib/moveDetails";
 
 // Inbound WhatsApp -> lead creation via 360dialog (a WhatsApp Business
 // Solution Provider built directly on Meta's Cloud API — same webhook
@@ -31,12 +32,12 @@ import { touchConversationOnInbound } from "@/lib/whatsappConversations";
 // Rather than a fixed name/email/pickup/destination/date question sequence,
 // this now runs a free-form AI conversation (lib/whatsappAiIntake.ts, one
 // OpenAI call per inbound message) — the model both replies naturally and
-// extracts the cumulative trip details from the whole transcript
+// extracts the cumulative move details from the whole transcript
 // (whatsapp_intake_sessions.messages/collected, migration
 // 0082_whatsapp_ai_intake.sql). A lead is only ever created once our own
-// server-side check (hasRequiredTripFields), not the model's say-so alone,
-// confirms all seven fields (name, email, pickup, destination, travel date,
-// passenger count, notes) are present.
+// server-side check (hasRequiredMoveFields), not the model's say-so alone,
+// confirms all seven fields (name, email, moving from, moving to, move date,
+// property size, notes) are present.
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -86,7 +87,7 @@ interface IntakeSession {
   id: string;
   step: IntakeStep;
   messages: ConversationMessage[];
-  collected: CollectedTrip;
+  collected: CollectedMove;
   lead_id: string | null;
   created_at: string;
 }
@@ -211,8 +212,8 @@ function parseLenientDate(text: string): string | null {
   return parsed.toISOString().slice(0, 10);
 }
 
-async function createLeadFromSession(admin: AdminClient, brand: Brand, waId: string, customerId: string, sessionId: string, collected: CollectedTrip) {
-  const travelDate = collected.travel_date ? parseLenientDate(collected.travel_date) : null;
+async function createLeadFromSession(admin: AdminClient, brand: Brand, waId: string, customerId: string, sessionId: string, collected: CollectedMove) {
+  const travelDate = collected.move_date ? parseLenientDate(collected.move_date) : null;
   const name = collected.name?.trim() || waId;
   // A customer who declines to give an email is recorded as "None" (see
   // lib/whatsappAiIntake.ts) so the bot knows it already asked rather than
@@ -228,7 +229,7 @@ async function createLeadFromSession(admin: AdminClient, brand: Brand, waId: str
   const noteParts: string[] = [];
   const customerNotes = collected.notes?.trim();
   if (customerNotes && !NONE_LIKE_RE.test(customerNotes)) noteParts.push(customerNotes);
-  if (!travelDate && collected.travel_date) noteParts.push(`Requested date (as typed via WhatsApp): ${collected.travel_date}`);
+  if (!travelDate && collected.move_date) noteParts.push(`Requested date (as typed via WhatsApp): ${collected.move_date}`);
   const notes = noteParts.length ? noteParts.join(" | ") : null;
 
   await admin.from("customers").update({ contact_name: name, phone: waId, ...(email ? { email } : {}) }).eq("id", customerId);
@@ -243,8 +244,8 @@ async function createLeadFromSession(admin: AdminClient, brand: Brand, waId: str
       customer_id: customerId,
       pickup_text: collected.pickup,
       destination_text: collected.destination,
-      passenger_count: collected.passenger_count,
       travel_date: travelDate,
+      ...pickMoveDetails({ ...NO_MOVE_DETAILS, ...collected }),
       notes,
       raw_payload: { waId, ...collected },
     })
@@ -279,7 +280,7 @@ async function createLeadFromSession(admin: AdminClient, brand: Brand, waId: str
   // can always quote it manually if this doesn't go through.
   const { data: tenant } = await admin.from("tenants").select("whatsapp_auto_quote_enabled").eq("id", brand.tenant_id).maybeSingle();
   if (tenant?.whatsapp_auto_quote_enabled) {
-    // Same guard as the SLA sweep — a trip whose date has already passed
+    // Same guard as the SLA sweep — a move whose date has already passed
     // can't be served, so it's left for a human rather than auto-quoted for
     // a date that's gone.
     const today = new Date().toISOString().slice(0, 10);
@@ -314,7 +315,7 @@ async function createLeadFromSession(admin: AdminClient, brand: Brand, waId: str
 /** Runs one AI turn for a single inbound message: starts a fresh conversation
     if the last one is finished (or handed off), otherwise continues it. Every
     completed conversation always produces its own new lead — a contact who
-    messages again later about a second trip gets a second lead, not one
+    messages again later about a second move gets a second lead, not one
     folded into the first's notes. */
 async function handleInboundMessage(admin: AdminClient, brand: Brand, waId: string, contactName: string, message: WhatsAppMessage) {
   const inboundText = await resolveInboundText(message);
@@ -386,10 +387,10 @@ async function handleInboundMessage(admin: AdminClient, brand: Brand, waId: stri
   // okey and it asked for my pickup address again"). An AI classification
   // call decides this (see handlePostDoneMessage's doc comment for why a
   // plain word-list regex wasn't reliable enough). Anything that's actually
-  // a new trip request falls through to start a fresh enquiry below.
+  // a new move request falls through to start a fresh enquiry below.
   if (session?.step === "done") {
     const postDone = await handlePostDoneMessage(brand.name, knownName, inboundText, aiModel);
-    if (!postDone.isNewTripRequest) {
+    if (!postDone.isNewMoveRequest) {
       await sendWhatsAppText(waId, postDone.reply);
       await logWhatsAppMessage(admin, brand, waId, customerId, "outbound", postDone.reply);
       return;
@@ -398,8 +399,8 @@ async function handleInboundMessage(admin: AdminClient, brand: Brand, waId: stri
 
   if (!session || session.step === "done") {
     // Seed the returning contact's known name/email into the new session so
-    // the AI doesn't re-ask for them on this second trip.
-    const seedCollected: Partial<CollectedTrip> = {};
+    // the AI doesn't re-ask for them on this second move.
+    const seedCollected: Partial<CollectedMove> = {};
     if (knownName) seedCollected.name = knownName;
     if (knownEmail) seedCollected.email = knownEmail;
 
@@ -424,7 +425,7 @@ async function handleInboundMessage(admin: AdminClient, brand: Brand, waId: stri
 
   if (history.length >= MAX_INTAKE_MESSAGES) {
     await admin.from("whatsapp_intake_sessions").update({ step: "handed_off", updated_at: new Date().toISOString() }).eq("id", session.id);
-    const handoff = "Let me get one of our team to take it from here — they'll follow up with you shortly to finish arranging your trip.";
+    const handoff = "Let me get one of our team to take it from here — they'll follow up with you shortly to finish arranging your move.";
     await sendWhatsAppText(waId, handoff);
     await logWhatsAppMessage(admin, brand, waId, customerId, "outbound", handoff);
     return;
@@ -452,7 +453,7 @@ async function handleInboundMessage(admin: AdminClient, brand: Brand, waId: stri
   // down on an earlier turn must never silently revert to null just because
   // this turn's re-summarize of the whole transcript missed it.
   const mergedCollected = mergeCollected(session.collected ?? {}, result.collected);
-  const readyForLead = result.ready && hasRequiredTripFields(mergedCollected);
+  const readyForLead = result.ready && hasRequiredMoveFields(mergedCollected);
 
   await admin
     .from("whatsapp_intake_sessions")

@@ -62,8 +62,8 @@ export type CustomerPaymentsSortKey = "decided_desc" | "decided_asc" | "pickup_a
 const SORT_OPTIONS: { value: CustomerPaymentsSortKey; label: string }[] = [
   { value: "decided_desc", label: "Newest accepted" },
   { value: "decided_asc", label: "Oldest accepted" },
-  { value: "pickup_asc", label: "Travel date: soonest" },
-  { value: "pickup_desc", label: "Travel date: latest" },
+  { value: "pickup_asc", label: "Move date: soonest" },
+  { value: "pickup_desc", label: "Move date: latest" },
   { value: "value_desc", label: "Highest value" },
   { value: "value_asc", label: "Lowest value" },
 ];

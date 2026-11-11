@@ -62,7 +62,7 @@ export function DocumentsDiagram() {
       </Text>
       <LabelPill x={270} y={152} h={18} anchor="start" fill="#f1f5f9" textFill={INK} label="Insurance" size={7.5} padX={9} />
       <Text x={370} y={162} size={8.5} fill="#475569">
-        City Transfers LLC
+        City Removals LLC
       </Text>
       <Text x={490} y={162} size={8.5} fill="#475569">
         Sara K.

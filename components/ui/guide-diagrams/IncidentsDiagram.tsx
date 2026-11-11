@@ -64,7 +64,7 @@ export function IncidentsDiagram() {
         Q-2026-0114
       </Text>
       <Text x={340} y={162} size={8.5} fill="#475569">
-        City Transfers LLC
+        City Removals LLC
       </Text>
       <LabelPill x={460} y={154} h={16} anchor="start" fill="#fee2e2" textFill="#991b1b" label="Critical" size={7} padX={7} />
       <LabelPill x={540} y={154} h={16} anchor="start" fill="#fef2f2" textFill="#dc2626" label="Open" size={7} padX={7} />
@@ -98,7 +98,7 @@ export function IncidentsDiagram() {
         Q-2026-0098
       </Text>
       <Text x={340} y={250} size={8.5} fill="#475569">
-        City Transfers LLC
+        City Removals LLC
       </Text>
       <LabelPill x={460} y={242} h={16} anchor="start" fill="#f1f5f9" textFill="#475569" label="Low" size={7} padX={7} />
       <LabelPill x={540} y={242} h={16} anchor="start" fill="#f0fdf4" textFill="#16a34a" label="Resolved" size={7} padX={7} />

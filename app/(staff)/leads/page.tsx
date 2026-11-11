@@ -7,9 +7,9 @@ import { getAssignableSalesUsers } from "@/lib/leadAssignees";
 
 const PAGE_SIZE = 25;
 
-export type LeadSortKey = "created_desc" | "created_asc" | "travel_asc" | "travel_desc";
+export type LeadSortKey = "created_desc" | "created_asc" | "move_asc" | "move_desc";
 
-const SORT_KEYS: LeadSortKey[] = ["created_desc", "created_asc", "travel_asc", "travel_desc"];
+const SORT_KEYS: LeadSortKey[] = ["created_desc", "created_asc", "move_asc", "move_desc"];
 
 // travel_date and created_at are plain columns on the leads table itself
 // (unlike Quotes' pickup date, which lives on a joined table) — so, unlike
@@ -18,8 +18,8 @@ const SORT_KEYS: LeadSortKey[] = ["created_desc", "created_asc", "travel_asc", "
 const SORT_COLUMN: Record<LeadSortKey, { column: "created_at" | "travel_date"; ascending: boolean }> = {
   created_desc: { column: "created_at", ascending: false },
   created_asc: { column: "created_at", ascending: true },
-  travel_asc: { column: "travel_date", ascending: true },
-  travel_desc: { column: "travel_date", ascending: false },
+  move_asc: { column: "travel_date", ascending: true },
+  move_desc: { column: "travel_date", ascending: false },
 };
 
 export default async function Page({
@@ -44,7 +44,7 @@ export default async function Page({
   let listQuery = supabase
     .from("leads")
     .select(
-      "id, source, status, priority, pickup_text, destination_text, travel_date, pickup_time, return_trip, return_date, return_time, passenger_count, luggage_count, is_complex_booking, vehicle_requested, notes, assigned_user_id, created_at, customers(company_name, contact_name, phone, whatsapp, email), profiles(full_name), brands(name), enquiries(quotes(ai_generated))",
+      "id, source, status, priority, pickup_text, destination_text, travel_date, pickup_time, is_complex_booking, notes, move_type, property_type, rooms, estimated_boxes, pickup_floor, destination_floor, lift_available, packing_needed, dismantling_needed, assembly_needed, storage_needed, fragile_items, assigned_user_id, created_at, customers(company_name, contact_name, phone, whatsapp, email), profiles(full_name), brands(name), enquiries(quotes(ai_generated))",
       { count: "exact" },
     );
 

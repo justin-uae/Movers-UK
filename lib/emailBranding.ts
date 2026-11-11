@@ -12,7 +12,7 @@ const EMAIL_HEADLINES: Record<EmailTemplateKey, string> = {
   job_rejected_by_supplier: "Job declined",
   supplier_invoice_submitted: "Invoice submitted",
   lead_assigned: "New lead assigned to you",
-  feedback_request: "How was your trip?",
+  feedback_request: "How was your move?",
   staff_invited: "You're invited",
   supplier_invited: "You're invited",
   payment_received: "Payment received",

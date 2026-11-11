@@ -13,11 +13,12 @@ import { generateInvoicePdf } from "@/lib/invoicePdf";
 import { cancelAllocation } from "@/lib/dispatchAllocations";
 import { persistGeneratedPdf } from "@/lib/documentArchive";
 import { sendWhatsAppTemplate, normalizeWhatsAppNumber, WHATSAPP_TEMPLATE_HEADER_IMAGE_URL } from "@/lib/whatsapp360";
-import { estimateQuoteTripPrice } from "@/lib/aiPriceEstimate";
+import { estimateQuoteMovePrice } from "@/lib/aiPriceEstimate";
 import { convertCurrency, convertToGbp } from "@/lib/fxRates";
 import { computeHistoricalRatePerKm } from "@/lib/quotePricingBenchmark";
 import { getAiModelSetting } from "@/lib/aiProviders";
 import { STRIPE_PRICE_THRESHOLD } from "@/lib/quoteMoney";
+import { moveDetailChanges, parseMoveDetails, pickMoveDetails, type MoveDetails } from "@/lib/moveDetails";
 
 /**
  * Reassign who owns a quote — admin/sales manager only (enquiries.reassign,
@@ -579,14 +580,14 @@ interface AmendBookingLegChange {
   destinationAddress?: string;
   pickupDate?: string | null;
   pickupTime?: string | null;
-  passengerCount?: number | null;
-  luggageCount?: number | null;
+  moveDetails?: MoveDetails;
+  vanSize?: string | null;
   specialRequirements?: string | null;
 }
 
 export interface AmendBookingInput {
   reason: string;
-  /** Which leg to edit, when there's more than one — defaults to sequence 1. */
+  /** Which move (enquiry_legs row) to edit — defaults to sequence 1. */
   legId?: string;
   legChanges?: AmendBookingLegChange;
   /** Signed — positive charges the customer more, negative credits them (and auto-refunds any resulting overpayment). */
@@ -597,7 +598,7 @@ export interface AmendBookingInput {
 
 /**
  * Post-payment booking amendment — lets a Master Admin or the enquiry's
- * assigned owner edit an already-accepted/paid booking's journey details,
+ * assigned owner edit an already-accepted/paid booking's move details,
  * and optionally charge/credit the customer and/or adjust the supplier's
  * payout, all under one required reason. See
  * supabase/migrations/0067_booking_amendments.sql for the full design
@@ -613,7 +614,7 @@ export async function amendBookingAction(quoteId: string, input: AmendBookingInp
   const hasPriceAdjustment = !!input.priceAdjustment;
   const hasSupplierAdjustment = !!input.supplierAdjustment && input.supplierAdjustment.amount !== 0;
   if (!hasLegChange && !hasPriceAdjustment && !hasSupplierAdjustment) {
-    return { error: "Change at least one journey detail, or enter a customer or supplier amount." };
+    return { error: "Change at least one move detail, or enter a customer or supplier amount." };
   }
 
   const supabase = await createClient();
@@ -624,7 +625,7 @@ export async function amendBookingAction(quoteId: string, input: AmendBookingInp
       "id, tenant_id, brand_id, customer_id, enquiry_id, status, quote_number, public_token, currency, invoice_number, " +
         "brands(name, invoice_number_prefix), customers(contact_name, company_name, email), " +
         "enquiries(assigned_user_id), " +
-        "quote_versions!quotes_current_version_id_fkey(id, version_number, vehicle_type_id, vehicle_description, supplier_estimated_cost, selling_price, vat_rate, currency, payment_methods, customer_notes, terms_snapshot, brand_snapshot, deposit_percentage, deposit_fixed_amount, quote_line_items(sequence, description, amount, category)), " +
+        "quote_versions!quotes_current_version_id_fkey(id, version_number, van_size, supplier_estimated_cost, selling_price, vat_rate, currency, payment_methods, customer_notes, terms_snapshot, brand_snapshot, deposit_percentage, deposit_fixed_amount, quote_line_items(sequence, description, amount, category)), " +
         "customer_payments(amount, verification_status)",
     )
     .eq("id", quoteId)
@@ -648,8 +649,7 @@ export async function amendBookingAction(quoteId: string, input: AmendBookingInp
     quote_versions: {
       id: string;
       version_number: number;
-      vehicle_type_id: string | null;
-      vehicle_description: string | null;
+      van_size: string | null;
       supplier_estimated_cost: number | null;
       selling_price: number;
       vat_rate: number;
@@ -687,24 +687,25 @@ export async function amendBookingAction(quoteId: string, input: AmendBookingInp
     return { error: "This job has been completed and can no longer be edited." };
   }
 
-  // ---- Resolve which leg is being edited, if any -------------------------
-  let targetLeg: {
+  // ---- Resolve the move being edited, if any -----------------------------
+  let targetLeg: (MoveDetails & {
     id: string;
     pickup_address: string;
     destination_address: string;
     pickup_date: string | null;
     pickup_time: string | null;
-    passenger_count: number | null;
-    luggage_count: number | null;
+    van_size: string | null;
     special_requirements: string | null;
-  } | null = null;
+  }) | null = null;
   if (hasLegChange) {
     const legQuery = supabase
       .from("enquiry_legs")
-      .select("id, pickup_address, destination_address, pickup_date, pickup_time, passenger_count, luggage_count, special_requirements")
+      .select(
+        "id, pickup_address, destination_address, pickup_date, pickup_time, van_size, special_requirements, move_type, property_type, rooms, estimated_boxes, pickup_floor, destination_floor, lift_available, packing_needed, dismantling_needed, assembly_needed, storage_needed, fragile_items",
+      )
       .eq("enquiry_id", quote.enquiry_id);
     const { data: leg } = input.legId ? await legQuery.eq("id", input.legId).maybeSingle() : await legQuery.eq("sequence", 1).maybeSingle();
-    if (!leg) return { error: "Journey leg not found." };
+    if (!leg) return { error: "Move not found." };
     targetLeg = leg;
   }
 
@@ -758,7 +759,7 @@ export async function amendBookingAction(quoteId: string, input: AmendBookingInp
 
   // A supplier who already committed to this job (accepted or confirmed)
   // gets pulled back to a pending state and has to explicitly re-approve
-  // the edited job — rather than a change silently landing on a trip
+  // the edited job — rather than a change silently landing on a move
   // they've already signed off on. An allocation still just 'offered' (no
   // commitment yet) or already rejected/unassigned doesn't need this.
   const requiresSupplierReapproval =
@@ -766,7 +767,7 @@ export async function amendBookingAction(quoteId: string, input: AmendBookingInp
     !!allocationId &&
     (allocationStatus === "accepted_by_supplier" || allocationStatus === "confirmed");
 
-  // ---- Journey changes ---------------------------------------------------
+  // ---- Move changes ------------------------------------------------------
   const changes: Record<string, { from: unknown; to: unknown }> = {};
 
   if (hasLegChange) {
@@ -789,13 +790,15 @@ export async function amendBookingAction(quoteId: string, input: AmendBookingInp
       changes.pickup_time = { from: leg.pickup_time, to: lc.pickupTime };
       legUpdate.pickup_time = lc.pickupTime;
     }
-    if (lc.passengerCount !== undefined && lc.passengerCount !== leg.passenger_count) {
-      changes.passenger_count = { from: leg.passenger_count, to: lc.passengerCount };
-      legUpdate.passenger_count = lc.passengerCount;
+    if (lc.vanSize !== undefined && lc.vanSize !== leg.van_size) {
+      changes.van_size = { from: leg.van_size, to: lc.vanSize };
+      legUpdate.van_size = lc.vanSize;
     }
-    if (lc.luggageCount !== undefined && lc.luggageCount !== leg.luggage_count) {
-      changes.luggage_count = { from: leg.luggage_count, to: lc.luggageCount };
-      legUpdate.luggage_count = lc.luggageCount;
+    if (lc.moveDetails) {
+      for (const [column, change] of Object.entries(moveDetailChanges(pickMoveDetails(leg), parseMoveDetails(lc.moveDetails)))) {
+        changes[column] = change;
+        legUpdate[column] = change.to;
+      }
     }
     if (lc.specialRequirements !== undefined && lc.specialRequirements !== leg.special_requirements) {
       changes.special_requirements = { from: leg.special_requirements, to: lc.specialRequirements };
@@ -833,8 +836,7 @@ export async function amendBookingAction(quoteId: string, input: AmendBookingInp
       .insert({
         quote_id: quoteId,
         version_number: nextVersionNumber,
-        vehicle_type_id: version.vehicle_type_id,
-        vehicle_description: version.vehicle_description,
+        van_size: version.van_size,
         supplier_estimated_cost: version.supplier_estimated_cost,
         selling_price: newSellingPrice,
         // Same VAT rate as before — the adjustment is VAT-inclusive (it's
@@ -942,7 +944,7 @@ export async function amendBookingAction(quoteId: string, input: AmendBookingInp
   }
 
   // ---- Pull the job back to "pending" if the supplier already committed ----
-  // Their original accept/confirm was for the trip as it stood then — an
+  // Their original accept/confirm was for the move as it stood then — an
   // edited leg or payout needs their eyes again before anything proceeds,
   // rather than quietly keeping their old sign-off. Approve/reject lives on
   // their own dashboard (see approveAmendedAllocationAction /
@@ -1148,8 +1150,8 @@ export async function processRefundAction(refundId: string) {
  * On-demand OpenAI price benchmark for an existing quote — Master Admin
  * only, full stop (not permission-key-gated like everything else in this
  * file, since this is Master-Admin tooling for auditing pricing decisions,
- * not a role-assignable capability). Computes from the journey's own
- * details (pickup/destination/date/passengers/vehicle) and caches the
+ * not a role-assignable capability). Computes from the move's own
+ * details (addresses/date/property/services/van size) and caches the
  * result on the quote row so viewing it again doesn't re-call OpenAI —
  * only clicking "Estimate" again does.
  */
@@ -1161,7 +1163,7 @@ export async function estimateQuotePriceAction(quoteId: string) {
   const { data: quote } = await supabase
     .from("quotes")
     .select(
-      "id, currency, brands(name), enquiries(enquiry_legs(sequence, pickup_address, destination_address, via_points, pickup_date, pickup_time, journey_type, return_date, return_time, passenger_count, luggage_count, special_requirements, wheelchair_required, child_seats)), quote_versions!quotes_current_version_id_fkey(vehicle_description)",
+      "id, currency, brands(name), enquiries(enquiry_legs(sequence, pickup_address, destination_address, pickup_date, pickup_time, special_requirements, move_type, property_type, rooms, estimated_boxes, pickup_floor, destination_floor, lift_available, packing_needed, dismantling_needed, assembly_needed, storage_needed, fragile_items)), quote_versions!quotes_current_version_id_fkey(van_size)",
     )
     .eq("id", quoteId)
     .single();
@@ -1170,38 +1172,23 @@ export async function estimateQuotePriceAction(quoteId: string) {
   const brand = quote.brands as unknown as { name: string } | null;
   const legs = (
     quote.enquiries as unknown as {
-      enquiry_legs: {
+      enquiry_legs: (MoveDetails & {
         sequence: number;
         pickup_address: string;
         destination_address: string;
-        via_points: string[] | null;
         pickup_date: string | null;
         pickup_time: string | null;
-        journey_type: string | null;
-        return_date: string | null;
-        return_time: string | null;
-        passenger_count: number | null;
-        luggage_count: number | null;
         special_requirements: string | null;
-        wheelchair_required: boolean | null;
-        child_seats: number | null;
-      }[];
+      })[];
     } | null
   )?.enquiry_legs;
-  const sortedLegs = (legs ?? []).slice().sort((a, b) => a.sequence - b.sequence);
-  const version = quote.quote_versions as unknown as { vehicle_description: string | null } | null;
-
-  // Every leg's own passenger count, at its highest — sizes the vehicle for
-  // the trip's peak load, not just whatever leg 1 happened to carry.
-  const maxPassengerCount = sortedLegs.reduce<number | null>(
-    (max, l) => (l.passenger_count != null ? Math.max(max ?? 0, l.passenger_count) : max),
-    null,
-  );
+  const move = (legs ?? []).slice().sort((a, b) => a.sequence - b.sequence)[0] ?? null;
+  const version = quote.quote_versions as unknown as { van_size: string | null } | null;
 
   const historicalRatePerKm = await computeHistoricalRatePerKm(supabase, {
     tenantId: actor.tenant_id,
     currency: quote.currency,
-    passengerCount: maxPassengerCount,
+    vanSize: version?.van_size ?? null,
     excludeQuoteId: quoteId,
   });
 
@@ -1209,26 +1196,20 @@ export async function estimateQuotePriceAction(quoteId: string) {
 
   let result;
   try {
-    result = await estimateQuoteTripPrice({
+    result = await estimateQuoteMovePrice({
       aiModel,
       brandName: brand?.name ?? "the company",
-      travelDate: sortedLegs[0]?.pickup_date ?? null,
-      vehicleDescription: version?.vehicle_description ?? null,
-      legs: sortedLegs.map((l) => ({
-        sequence: l.sequence,
-        pickup: l.pickup_address,
-        destination: l.destination_address,
-        pickupTime: l.pickup_time,
-        returnDate: l.return_date,
-        returnTime: l.return_time,
-        isReturn: l.journey_type === "return",
-        passengerCount: l.passenger_count,
-        luggageCount: l.luggage_count,
-        specialRequirements: l.special_requirements,
-        wheelchairRequired: l.wheelchair_required ?? false,
-        childSeats: l.child_seats ?? 0,
-        viaPoints: l.via_points ?? [],
-      })),
+      moveDate: move?.pickup_date ?? null,
+      vanSize: version?.van_size ?? null,
+      move: move
+        ? {
+            pickup: move.pickup_address,
+            destination: move.destination_address,
+            pickupTime: move.pickup_time,
+            moveDetails: pickMoveDetails(move),
+            specialRequirements: move.special_requirements,
+          }
+        : null,
       historicalRatePerKm,
     });
   } catch (err) {
@@ -1236,10 +1217,9 @@ export async function estimateQuotePriceAction(quoteId: string) {
     return { error: "Could not get an AI price estimate right now — try again shortly." };
   }
 
-  // The AI prices a trip in whatever currency it judges the route actually
-  // trades in (worked out from the pickup/destination, e.g. GHS for a route
-  // in Ghana) — that can differ from the quote's own currency (e.g. a UK
-  // brand quoting in USD), making the two numbers shown side by side on
+  // The AI prices a move in the currency it's told to (or GBP) — that can
+  // differ from the quote's own currency (e.g. a quote raised in EUR for an
+  // international move), making the two numbers shown side by side on
   // screen not directly comparable, and the "quoted below AI estimate" flag
   // actively misleading. Convert to the quote's own currency for display;
   // if the conversion itself fails (an unsupported/unrecognised code), fall
@@ -1285,11 +1265,10 @@ export async function estimateQuotePriceAction(quoteId: string) {
     // at today's rate" instead of silently hiding that a conversion occurred.
     originalPrice,
     originalCurrency,
-    vehicleDescription: result.vehicleDescription,
+    vanSize: result.vanSize,
     rationale: result.rationale,
     distanceKm: result.distanceKm,
     pricePerKm: result.pricePerKm,
-    legCount: result.legCount,
     historicalRatePerKm: result.historicalRatePerKm,
     historicalSampleSize: result.historicalSampleSize,
     computedAt,

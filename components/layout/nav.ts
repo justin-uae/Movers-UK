@@ -5,7 +5,6 @@ import {
   CalendarDays,
   CalendarX2,
   CalendarCheck2,
-  Bus,
   Building2,
   Mail,
   MessageCircle,
@@ -153,7 +152,7 @@ export const NAV: NavItem[] = [
   {
     label: "Dispatch",
     href: "/dispatch",
-    icon: Bus,
+    icon: Truck,
     group: "operations",
     // Sales roles can also always dispatch a job they personally created
     // (see canDispatch() in app/(staff)/dispatch/actions.ts) — quotes.create

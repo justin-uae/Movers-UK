@@ -32,7 +32,7 @@ const BOOKINGS_GUIDE_SECTIONS = [
     body: [
       "View job / View quote opens the full detail — pricing, supplier allocation and activity.",
       "Supplier assignment itself happens on Dispatch, not here — this list is for tracking status, not allocating.",
-      "Edit Booking, on the quote or job detail page, stays available for a Confirmed booking — journey details, a customer charge/credit, or a supplier payout adjustment, always with a reason and logged to Edit history. It closes off once the booking lands here in Completed, matching \"nothing left to action.\"",
+      "Edit Booking, on the quote or job detail page, stays available for a Confirmed booking — move details, a customer charge/credit, or a supplier payout adjustment, always with a reason and logged to Edit history. It closes off once the booking lands here in Completed, matching \"nothing left to action.\"",
     ],
   },
 ];

@@ -18,25 +18,25 @@ const FEATURE_CARDS: { key: AiFeatureKey; label: string; icon: FeatureIcon; text
     key: "whatsapp_intake",
     label: "WhatsApp Conversation",
     icon: WhatsAppIcon,
-    text: "Chats with a customer over WhatsApp and gathers their trip details — name, email, pickup, destination, date, passengers, special requirements.",
+    text: "Chats with a customer over WhatsApp and gathers their move details — name, email, moving from, moving to, date, property size, special requirements.",
   },
   {
     key: "pricing_engine",
     label: "Pricing & Auto-Quote",
     icon: Calculator,
-    text: "Prices a trip for the SLA-breach sweep, instant quoting on a new WhatsApp lead, instant quoting on manual assign-to-AI, and the Master Admin benchmark button — all four always share this one model.",
+    text: "Prices a move for the SLA-breach sweep, instant quoting on a new WhatsApp lead, instant quoting on manual assign-to-AI, and the Master Admin benchmark button — all four always share this one model.",
   },
   {
     key: "email_intake",
     label: "Email Lead Intake",
     icon: Mail,
-    text: "Reads the shared enquiry inbox every hour and decides which forwarded emails are genuine travel enquiries worth turning into a lead — including any attached image/PDF/Word document, not just the email text.",
+    text: "Reads the shared enquiry inbox every hour and decides which forwarded emails are genuine moving enquiries worth turning into a lead — including any attached image/PDF/Word document, not just the email text.",
   },
   {
     key: "complex_booking",
     label: "Complex Booking Extraction",
     icon: FileSearch,
-    text: "Reads a pasted itinerary or an uploaded image/PDF/Word document and extracts a structured multi-leg booking.",
+    text: "Reads a pasted enquiry or an uploaded image/PDF/Word document (e.g. an inventory) and extracts the move details.",
   },
 ];
 

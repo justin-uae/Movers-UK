@@ -81,10 +81,9 @@ async function main() {
   // ---------------------------------------------------------------------
   const COMPANIES = [
     { legal: "Cheap Mover", brand: "Cheap Mover", currency: "GBP" },
-    { legal: "Prime Coach Hire Ltd", brand: "Prime Coach Hire", currency: "EUR" },
-    { legal: "Coach Hire Dubai LLC", brand: "Coach Hire Dubai", currency: "AED" },
-    { legal: "A2B Transport Agency Ltd", brand: "A2B Transport Agency", currency: "EUR" },
-    { legal: "Buses Dubai LLC", brand: "Buses Dubai", currency: "AED" },
+    { legal: "Man & Van London Ltd", brand: "Man & Van London", currency: "GBP" },
+    { legal: "Express Removals Ltd", brand: "Express Removals", currency: "GBP" },
+    { legal: "Storage Plus Ltd", brand: "Storage Plus", currency: "GBP" },
   ];
 
   const brandsByName = {};
@@ -130,10 +129,10 @@ async function main() {
   // ---------------------------------------------------------------------
   const USERS = [
     { name: "Amir Khan", email: "amir@test.local", region: "London", brand: "Cheap Mover" },
-    { name: "Sofia Martin", email: "sofia@test.local", region: "Paris", brand: "A2B Transport Agency" },
-    { name: "Omar Ali", email: "omar@test.local", region: "Dubai", brand: "Coach Hire Dubai" },
-    { name: "Daniel Weber", email: "daniel@test.local", region: "Berlin", brand: "Prime Coach Hire" },
-    { name: "Layla Hassan", email: "layla@test.local", region: "Abu Dhabi", brand: "Buses Dubai" },
+    { name: "Sofia Martin", email: "sofia@test.local", region: "Manchester", brand: "Express Removals" },
+    { name: "Omar Ali", email: "omar@test.local", region: "Birmingham", brand: "Man & Van London" },
+    { name: "Daniel Weber", email: "daniel@test.local", region: "Leeds", brand: "Storage Plus" },
+    { name: "Layla Hassan", email: "layla@test.local", region: "Bristol", brand: "Express Removals" },
   ];
 
   for (const u of USERS) {
@@ -174,11 +173,11 @@ async function main() {
   // Customers
   // ---------------------------------------------------------------------
   const CUSTOMERS = [
-    { contact: "Helen Bright", company: "Horizon Events", email: "helen@horizonevents.test", country: "United Kingdom" },
-    { contact: "Yusuf Rahman", company: "Al Noor School", email: "yusuf@alnoorschool.test", country: "UAE" },
-    { contact: "Claire Dubois", company: "Maison Travel", email: "claire@maisontravel.test", country: "France" },
-    { contact: "Hans Fischer", company: "Berlin Transfers GmbH", email: "hans@berlintransfers.test", country: "Germany" },
-    { contact: "Marco Rossi", company: "Lombardy Tours", email: "marco@lombardytours.test", country: "Italy" },
+    { contact: "Helen Bright", company: "Horizon Lettings", email: "helen@horizonlettings.test", country: "United Kingdom" },
+    { contact: "Yusuf Rahman", company: "Rahman Family", email: "yusuf@rahman.test", country: "United Kingdom" },
+    { contact: "Claire Dubois", company: "Dubois Design Studio", email: "claire@duboisdesign.test", country: "United Kingdom" },
+    { contact: "Hans Fischer", company: "Fischer Accountants", email: "hans@fischeraccountants.test", country: "United Kingdom" },
+    { contact: "Marco Rossi", company: "Rossi Household", email: "marco@rossi.test", country: "United Kingdom" },
   ];
 
   const customersByCompany = {};
@@ -212,12 +211,12 @@ async function main() {
   // Deleted and recreated every run so they always reflect current routing.
   // ---------------------------------------------------------------------
   const LEADS = [
-    { customer: "Horizon Events", brand: "Cheap Mover", pickup: "London Heathrow Airport", destination: "Oxford", passengers: 28, vehicle: "35 Seater Coach" },
-    { customer: "Al Noor School", brand: "Coach Hire Dubai", pickup: "Dubai Marina", destination: "Abu Dhabi Corniche", passengers: 40, vehicle: "49 Seater Coach" },
-    { customer: "Maison Travel", brand: "A2B Transport Agency", pickup: "Paris Charles de Gaulle Airport", destination: "Versailles", passengers: 16, vehicle: "16 Seater Minibus" },
-    { customer: "Berlin Transfers GmbH", brand: "Prime Coach Hire", pickup: "Berlin Tegel", destination: "Potsdam", passengers: 20, vehicle: "Minibus" },
-    { customer: "Lombardy Tours", brand: null, pickup: "Milan Malpensa Airport", destination: "Lake Como", passengers: 12, vehicle: "Minibus", note: "No matching region — should land in Open Pool" },
-    { customer: null, brand: null, pickup: "Madrid", destination: "Toledo", passengers: 8, vehicle: "Minivan", note: "No matching region, no known customer — should land in Open Pool" },
+    { customer: "Horizon Lettings", brand: "Cheap Mover", pickup: "Camden, London NW1", destination: "Oxford OX2", moveType: "House removal", propertyType: "House", rooms: "3" },
+    { customer: "Rahman Family", brand: "Man & Van London", pickup: "Edgbaston, Birmingham B15", destination: "Solihull B91", moveType: "Flat removal", propertyType: "Flat", rooms: "2" },
+    { customer: "Dubois Design Studio", brand: "Express Removals", pickup: "Ancoats, Manchester M4", destination: "Salford M50", moveType: "Office relocation", propertyType: "Office", rooms: "6" },
+    { customer: "Fischer Accountants", brand: "Storage Plus", pickup: "Headingley, Leeds LS6", destination: "Harrogate HG1", moveType: "Storage", propertyType: "Office", rooms: "4" },
+    { customer: "Rossi Household", brand: null, pickup: "Inverness IV2", destination: "Aberdeen AB10", moveType: "House removal", propertyType: "House", rooms: "4", note: "No matching region — should land in Open Pool" },
+    { customer: null, brand: null, pickup: "Truro TR1", destination: "Exeter EX4", moveType: "Man and van", propertyType: "Flat", rooms: "1", note: "No matching region, no known customer — should land in Open Pool" },
   ];
 
   await supabase
@@ -237,25 +236,26 @@ async function main() {
       customer_id: customer?.id ?? null,
       pickup_text: l.pickup,
       destination_text: l.destination,
-      passenger_count: l.passengers,
-      vehicle_requested: l.vehicle,
+      move_type: l.moveType,
+      property_type: l.propertyType,
+      rooms: l.rooms,
       notes: l.note ?? null,
     });
     if (error) {
       console.error(`Lead ${l.pickup} -> ${l.destination}: ${error.message}`);
       continue;
     }
-    console.log(`Lead: ${l.pickup} -> ${l.destination} (${l.passengers} pax)`);
+    console.log(`Lead: ${l.pickup} -> ${l.destination} (${l.moveType}, ${l.rooms} rooms)`);
   }
 
   // ---------------------------------------------------------------------
   // Suppliers — different verification states
   // ---------------------------------------------------------------------
   const SUPPLIERS = [
-    { name: "Dubai Prestige Transport", email: "supplier.dubai@test.local", type: "company", region: "Dubai", status: "approved", vehicle: { vehicle_type: "49 Seater Coach", seat_capacity: 49, plate_number: "DXB-4471" } },
-    { name: "Paris Elite Coaches", email: "supplier.paris@test.local", type: "company", region: "Paris", status: "submitted" },
-    { name: "London Executive Cars", email: "supplier.london@test.local", type: "company", region: "London", status: "invited" },
-    { name: "Karim Al Farsi", email: "supplier.driver@test.local", type: "individual", region: "Dubai", status: "approved", vehicle: { vehicle_type: "Executive Sedan", seat_capacity: 4, plate_number: "DXB-9021" } },
+    { name: "Northern Removals", email: "supplier.north@test.local", type: "company", region: "Manchester", status: "approved", vehicle: { van_size: "Luton van", plate_number: "MA21 RMV" } },
+    { name: "Capital Movers", email: "supplier.london@test.local", type: "company", region: "London", status: "submitted" },
+    { name: "Midlands Man & Van", email: "supplier.midlands@test.local", type: "company", region: "Birmingham", status: "invited" },
+    { name: "Karim Al Farsi", email: "supplier.driver@test.local", type: "individual", region: "London", status: "approved", vehicle: { van_size: "Medium van", plate_number: "LD70 VAN" } },
   ];
 
   for (const s of SUPPLIERS) {

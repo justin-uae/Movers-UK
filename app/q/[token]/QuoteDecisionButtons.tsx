@@ -5,7 +5,7 @@ import { acceptQuoteAction, rejectQuoteAction } from "./actions";
 
 const REJECT_REASONS = [
   "Too expensive",
-  "Cancelled trip",
+  "Move cancelled",
   "Booked elsewhere",
   "Dates changed",
   "Requirements changed",

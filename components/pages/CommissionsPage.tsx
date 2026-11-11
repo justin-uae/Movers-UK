@@ -198,7 +198,7 @@ export function CommissionsPage({
       <PageHead
         eyebrow="Completed-Job Commission"
         title="Commission management"
-        text="Commission becomes payable only after the journey is completed and final costs are approved."
+        text="Commission becomes payable only after the move is completed and final costs are approved."
         action={
           <PageGuide
             title="Commission management"

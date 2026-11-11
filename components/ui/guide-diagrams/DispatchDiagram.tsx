@@ -32,7 +32,7 @@ export function DispatchDiagram() {
         <LabelPill x={608} y={-4} h={18} anchor="end" fill="#fef3c7" textFill="#b45309" label="Accepted by supplier" size={7.5} padX={9} />
         <LabelPill x={608 - measurePillWidth("Accepted by supplier", 7.5, 9) - 8} y={-4} h={18} anchor="end" fill="#ffffff" stroke={LINE} textFill="#475569" label="View" size={8} padX={10} />
         <Text x={0} y={40} size={8.5} fill={MUTED}>
-          Assigned to City Transfers LLC
+          Assigned to City Removals LLC
         </Text>
       </Card>
 
@@ -50,7 +50,7 @@ export function DispatchDiagram() {
         </Text>
       </Card>
 
-      <Tag x={20} y={286} label="Open a job to allocate legs and offer them to suppliers" />
+      <Tag x={20} y={286} label="Open a job to allocate the move and offer it to suppliers" />
 
       <Text x={20} y={330} size={8.5} weight={700} fill={INK}>
         Job status flow

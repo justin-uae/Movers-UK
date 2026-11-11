@@ -6,7 +6,7 @@ import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { UserCheck, UserPlus, FileText, TrendingUp, Loader2 } from "lucide-react";
 import { Panel } from "@/components/ui/Panel";
 import { Kpi } from "@/components/ui/Kpi";
-import { JourneyCell } from "@/components/ui/JourneyCell";
+import { RouteCell } from "@/components/ui/RouteCell";
 import { PageHead } from "@/components/ui/PageHead";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { SortSelect } from "@/components/ui/SortSelect";
@@ -23,17 +23,18 @@ import { formatDate, formatTimeOnly } from "@/lib/formatDate";
 import { SOURCE_LABEL } from "@/lib/leadSource";
 import type { LeadSource, LeadStatus } from "@/lib/supabase/database.types";
 import type { AssignableUser } from "@/components/pages/LeadDetailPage";
+import { moveDetailRows, type MoveDetails } from "@/lib/moveDetails";
 
 export type LeadTab = "mine" | "pool" | "all" | "quoted";
 
 const SORT_OPTIONS = [
   { value: "created_desc", label: "Newest created" },
   { value: "created_asc", label: "Oldest created" },
-  { value: "travel_asc", label: "Travel date: soonest" },
-  { value: "travel_desc", label: "Travel date: latest" },
+  { value: "move_asc", label: "Move date: soonest" },
+  { value: "move_desc", label: "Move date: latest" },
 ];
 
-export interface LeadRow {
+export interface LeadRow extends MoveDetails {
   id: string;
   source: LeadSource;
   status: LeadStatus;
@@ -42,13 +43,7 @@ export interface LeadRow {
   destination_text: string | null;
   travel_date: string | null;
   pickup_time: string | null;
-  return_trip: boolean;
-  return_date: string | null;
-  return_time: string | null;
-  passenger_count: number | null;
-  luggage_count: number | null;
   is_complex_booking: boolean;
-  vehicle_requested: string | null;
   notes: string | null;
   assigned_user_id: string | null;
   created_at: string;
@@ -80,7 +75,7 @@ const STATUS_LABEL: Record<LeadStatus, string> = {
   expired: "Expired",
 };
 
-/** A lead with no pickup/destination came in through a general enquiry (e.g. a Contact Us form) rather than a journey-specific quote request — nothing to show in the Journey column, and the journey-only detail rows would just be a wall of "—". */
+/** A lead with no pickup/destination came in through a general enquiry (e.g. a Contact Us form) rather than a moving-quote request — nothing to show in the Move column, and the move-only detail rows would just be a wall of "—". */
 function isGeneralEnquiry(l: Pick<LeadRow, "pickup_text" | "destination_text">) {
   return !l.pickup_text && !l.destination_text;
 }
@@ -98,7 +93,7 @@ function formatWhen(date: string | null, time: string | null) {
   return time ? `${formatDate(date)} · ${displayTime(time)}` : formatDate(date);
 }
 
-/** Date on its own line, time stacked underneath in smaller muted text — for the detail popup's Travel date/Return rows, where there's room to make the time easy to spot rather than trailing after the date. */
+/** Date on its own line, time stacked underneath in smaller muted text — for the detail popup's Move date/Return rows, where there's room to make the time easy to spot rather than trailing after the date. */
 function WhenValue({ date, time }: { date: string | null; time: string | null }) {
   if (!date) return <>—</>;
   return (
@@ -305,8 +300,8 @@ export function LeadsPage({
                 {
                   heading: "What a lead is",
                   body: [
-                    "A lead is a raw enquiry — someone asking about a journey before it's been priced. Leads arrive from the website, email, WhatsApp, phone calls or live chat, and are tagged with that source so you know where to follow up.",
-                    "A lead with no pickup/destination is a general enquiry (e.g. a Contact Us message) rather than a specific trip request — those show the message text instead of a journey.",
+                    "A lead is a raw enquiry — someone asking about a move before it's been priced. Leads arrive from the website, email, WhatsApp, phone calls or live chat, and are tagged with that source so you know where to follow up.",
+                    "A lead with no pickup/destination is a general enquiry (e.g. a Contact Us message) rather than a specific moving request — those show the message text instead of a move.",
                   ],
                 },
                 {
@@ -413,7 +408,7 @@ export function LeadsPage({
                   <p className="line-clamp-2 text-slate-600">{l.notes || "General enquiry"}</p>
                 ) : (
                   <>
-                    <JourneyCell pickup={l.pickup_text} destination={l.destination_text} maxWidth="100%" />
+                    <RouteCell pickup={l.pickup_text} destination={l.destination_text} maxWidth="100%" />
                     <div className="text-xs text-slate-400">{formatWhen(l.travel_date, l.pickup_time)}</div>
                   </>
                 )}
@@ -462,7 +457,7 @@ export function LeadsPage({
             <thead className="text-left text-xs uppercase text-slate-400">
               <tr>
                 <th className="py-4">Customer</th>
-                <th>Journey</th>
+                <th>Move</th>
                 <th>Source</th>
                 <th>Status</th>
                 <th>Age</th>
@@ -497,7 +492,7 @@ export function LeadsPage({
                       </p>
                     ) : (
                       <>
-                        <JourneyCell pickup={l.pickup_text} destination={l.destination_text} />
+                        <RouteCell pickup={l.pickup_text} destination={l.destination_text} />
                         <div className="text-xs text-slate-400">{formatWhen(l.travel_date, l.pickup_time)}</div>
                       </>
                     )}
@@ -576,28 +571,12 @@ export function LeadsPage({
             ...(detailIsGeneralEnquiry
               ? []
               : [
-                  { label: "Pickup", value: detailLead.pickup_text ?? "—" },
-                  { label: "Destination", value: detailLead.destination_text ?? "—" },
+                  { label: "Moving from", value: detailLead.pickup_text ?? "—" },
+                  { label: "Moving to", value: detailLead.destination_text ?? "—" },
                 ]),
-            { label: "Travel date", value: <WhenValue date={detailLead.travel_date} time={detailLead.pickup_time} /> },
-            // Placed right after Travel date (not down with Priority/Owner
-            // etc.) so a return journey's date/time lands in the same row,
-            // right next to the outbound leg — the two read as a pair.
-            ...(detailLead.return_trip
-              ? [
-                  {
-                    label: "Return",
-                    value: detailLead.return_date ? (
-                      <WhenValue date={detailLead.return_date} time={detailLead.return_time} />
-                    ) : (
-                      "Yes — date/time not specified"
-                    ),
-                  },
-                ]
-              : []),
-            { label: "Passengers", value: detailLead.passenger_count ?? "—" },
-            ...(detailLead.luggage_count !== null ? [{ label: "Luggage", value: detailLead.luggage_count }] : []),
-            ...(detailIsGeneralEnquiry ? [] : [{ label: "Vehicle requested", value: detailLead.vehicle_requested ?? "—" }]),
+            { label: "Move date", value: <WhenValue date={detailLead.travel_date} time={detailLead.pickup_time} /> },
+            // Move details — only those actually captured.
+            ...moveDetailRows(detailLead),
             { label: "Priority", value: detailLead.priority === "high" ? "High" : "Normal" },
             {
               label: "Owner",

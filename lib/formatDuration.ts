@@ -1,4 +1,4 @@
-/** "1 h 25 min" / "40 min" — for driving durations from lib/tripDistance.ts. */
+/** "1 h 25 min" / "40 min" — for driving durations from lib/moveDistance.ts. */
 export function formatDuration(minutes: number) {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;

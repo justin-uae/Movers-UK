@@ -12,7 +12,7 @@ import { PageHead } from "@/components/ui/PageHead";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { SortSelect } from "@/components/ui/SortSelect";
 import { Pagination } from "@/components/ui/Pagination";
-import { JourneyCell } from "@/components/ui/JourneyCell";
+import { RouteCell } from "@/components/ui/RouteCell";
 import { ConfirmDetailModal } from "@/components/ui/ConfirmDetailModal";
 import { useToast } from "@/components/ui/Toast";
 import { PageGuide } from "@/components/ui/PageGuide";
@@ -99,7 +99,7 @@ function money(amount: number | undefined, currency: string) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
 }
 
-function journeyOf(q: QuoteRow) {
+function moveOf(q: QuoteRow) {
   return q.enquiries?.enquiry_legs?.[0] ?? null;
 }
 
@@ -122,17 +122,17 @@ function Field({ label, className, children }: { label: string; className?: stri
 }
 
 function pickupInfo(q: QuoteRow) {
-  const leg = journeyOf(q);
+  const leg = moveOf(q);
   if (!leg?.pickup_date) return "—";
   return formatDateAndTime(leg.pickup_date, leg.pickup_time);
 }
 
 // Every row on this page is already draft/sent/viewed/accepted (Pending
 // Quotes' own status filter) — none of those are a terminal state, so a
-// row whose travel date has already gone by is, by definition, a trip that
+// row whose move date has already gone by is, by definition, a move that
 // never got paid/actioned in time and needs a human's attention.
 function isOverdue(q: QuoteRow) {
-  return isPastDate(journeyOf(q)?.pickup_date);
+  return isPastDate(moveOf(q)?.pickup_date);
 }
 
 export function QuotesPage({
@@ -200,10 +200,9 @@ export function QuotesPage({
         // estimateQuotePriceAction.
         originalPrice: number | null;
         originalCurrency: string | null;
-        vehicleDescription: string | null;
+        vanSize: string | null;
         rationale: string | null;
         distanceKm: number | null;
-        legCount: number | null;
         historicalRatePerKm: number | null;
         historicalSampleSize: number | null;
       }
@@ -220,10 +219,9 @@ export function QuotesPage({
             supplierCost: null,
             originalPrice: null,
             originalCurrency: null,
-            vehicleDescription: null,
+            vanSize: null,
             rationale: null,
             distanceKm: null,
-            legCount: null,
             historicalRatePerKm: null,
             historicalSampleSize: null,
           }
@@ -246,10 +244,9 @@ export function QuotesPage({
             supplierCost: result.supplierEstimatedCost ?? null,
             originalPrice: result.originalPrice ?? null,
             originalCurrency: result.originalCurrency ?? null,
-            vehicleDescription: result.vehicleDescription ?? null,
+            vanSize: result.vanSize ?? null,
             rationale: result.rationale ?? null,
             distanceKm: result.distanceKm ?? null,
-            legCount: result.legCount ?? null,
             historicalRatePerKm: result.historicalRatePerKm ?? null,
             historicalSampleSize: result.historicalSampleSize ?? null,
           },
@@ -380,7 +377,7 @@ export function QuotesPage({
                 {
                   heading: "What a quote is",
                   body: [
-                    "A quote is a priced version of an enquiry — created from a lead once you know the route, vehicle and price. It has its own quote number and a shareable link the customer can view and accept online.",
+                    "A quote is a priced version of an enquiry — created from a lead once you know the move, van size and price. It has its own quote number and a shareable link the customer can view and accept online.",
                   ],
                 },
                 {
@@ -410,7 +407,7 @@ export function QuotesPage({
                   bullets: true,
                   body: [
                     "Edit Booking, on the quote detail page, works at any stage — draft through fully paid — right up until the job is marked completed by the supplier.",
-                    "Change the pickup, destination, date, time, passengers or luggage; optionally charge or credit the customer, and/or adjust what a supplier is owed — a reason is always required.",
+                    "Change the addresses, date, time, move details or van size; optionally charge or credit the customer, and/or adjust what a supplier is owed — a reason is always required.",
                     "A positive customer amount adds to the balance due (the customer gets an emailed link to pay it); a negative amount lowers the price and auto-queues a refund if that leaves them overpaid.",
                     "Every edit is logged to that quote's Edit history panel with who made it, why, and a before/after diff, and (when relevant) emails both the customer and the supplier — the same button and history also appear on the matching Dispatch job page.",
                     "If a supplier had already accepted or confirmed the job, they're not just notified — the job goes to Awaiting supplier re-approval and they have to explicitly approve or reject the change before it proceeds. A rejection pulls the job off them entirely and reopens it on Dispatch to offer to someone else; either outcome shows up in Edit history.",
@@ -498,7 +495,7 @@ export function QuotesPage({
           )}
 
           {quotes.map((q) => {
-            const leg = journeyOf(q);
+            const leg = moveOf(q);
             const isResendable = canResendQuote(q);
             const isSelected = selected.has(q.id);
             const customerLabel = q.customers?.company_name || q.customers?.contact_name || "—";
@@ -550,7 +547,7 @@ export function QuotesPage({
 
                 {/* Every field renders through the same Field tile, in one
                     grid, so nothing drifts out of alignment with anything
-                    else on the card. Row 1 (customer / journey / value) and
+                    else on the card. Row 1 (customer / move / value) and
                     row 2 (rep / pickup / sent / viewed) both add up to 4
                     columns on sm+, so the two rows line up with each other;
                     on mobile every tile is simply full-width and stacked. */}
@@ -560,8 +557,8 @@ export function QuotesPage({
                       {customerLabel}
                     </span>
                   </Field>
-                  <Field label="Journey" className="sm:col-span-2">
-                    <JourneyCell pickup={leg?.pickup_address} destination={leg?.destination_address} maxWidth="100%" />
+                  <Field label="Move" className="sm:col-span-2">
+                    <RouteCell pickup={leg?.pickup_address} destination={leg?.destination_address} maxWidth="100%" />
                   </Field>
                   <Field label="Value" className="sm:text-right">
                     {q.quote_versions?.original_price != null && (
@@ -602,7 +599,7 @@ export function QuotesPage({
                                 {money(estimate.price, estimate.currency)}
                                 {estimate.distanceKm != null && (
                                   <span className="ml-1.5 text-xs font-normal text-slate-400">
-                                    (≈{estimate.distanceKm} km{estimate.legCount && estimate.legCount > 1 ? ` across ${estimate.legCount} legs` : ""})
+                                    (≈{estimate.distanceKm} km)
                                   </span>
                                 )}
                                 {seemsUnderpriced && <span className="ml-1.5 text-xs font-normal">(quoted below AI estimate)</span>}
@@ -621,7 +618,7 @@ export function QuotesPage({
                             <button
                               onClick={() => runEstimate(q.id)}
                               disabled={isEstimating}
-                              title="Estimate this trip's price with AI, from its journey details"
+                              title="Estimate this move's price with AI, from its move details"
                               className="flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-bold hover:bg-slate-50 disabled:opacity-60"
                             >
                               <RefreshCw size={11} className={isEstimating ? "animate-spin" : undefined} />
@@ -708,19 +705,19 @@ export function QuotesPage({
         open={!!aiEstimateModalQuote && !!aiEstimateModalData}
         onClose={() => setAiEstimateModalId(null)}
         title={`AI response — ${aiEstimateModalQuote?.quote_number ?? ""}`}
-        description="What the AI model actually said when it priced this trip — not just the headline number."
+        description="What the AI model actually said when it priced this move — not just the headline number."
         cancelLabel="Close"
         details={
           aiEstimateModalData
             ? [
-                { label: "Recommended vehicle", value: aiEstimateModalData.vehicleDescription ?? "—" },
+                { label: "Recommended van size", value: aiEstimateModalData.vanSize ?? "—" },
                 { label: "Supplier cost estimate", value: money(aiEstimateModalData.supplierCost ?? undefined, aiEstimateModalData.currency) },
                 { label: "Suggested selling price", value: money(aiEstimateModalData.price, aiEstimateModalData.currency) },
                 ...(aiEstimateModalData.originalPrice != null && aiEstimateModalData.originalCurrency != null
                   ? [
                       {
                         label: "AI's own currency",
-                        value: `Priced at ${money(aiEstimateModalData.originalPrice, aiEstimateModalData.originalCurrency)} based on local market rates, converted to ${aiEstimateModalData.currency} above at today's exchange rate`,
+                        value: `Priced at ${money(aiEstimateModalData.originalPrice, aiEstimateModalData.originalCurrency)} by the AI, converted to ${aiEstimateModalData.currency} above at today's exchange rate`,
                       },
                     ]
                   : []),
@@ -728,7 +725,7 @@ export function QuotesPage({
                   ? [
                       {
                         label: "Distance",
-                        value: `${aiEstimateModalData.distanceKm} km${aiEstimateModalData.legCount && aiEstimateModalData.legCount > 1 ? ` across ${aiEstimateModalData.legCount} legs` : ""}`,
+                        value: `${aiEstimateModalData.distanceKm} km`,
                       },
                     ]
                   : []),

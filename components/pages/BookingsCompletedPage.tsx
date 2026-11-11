@@ -103,7 +103,7 @@ export function BookingsCompletedPage({
                   <span className="font-bold">{money(job.quotes?.quote_versions?.selling_price, job.quotes?.currency ?? BRAND.defaultCurrency)}</span>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">
-                  Travel date: {job.quotes?.enquiries?.enquiry_legs?.[0]?.pickup_date ? formatDate(job.quotes.enquiries.enquiry_legs[0].pickup_date!) : "—"}
+                  Move date: {job.quotes?.enquiries?.enquiry_legs?.[0]?.pickup_date ? formatDate(job.quotes.enquiries.enquiry_legs[0].pickup_date!) : "—"}
                 </p>
                 {latestCompletion(job.job_allocations) && (
                   <p className="mt-1 text-xs text-slate-400">Completed {formatDateTime(latestCompletion(job.job_allocations)!)}</p>

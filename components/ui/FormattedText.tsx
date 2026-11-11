@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 const BULLET_RE = /^[•◦‣▪●*-]\s+/;
 const NUMBERED_RE = /^\d+[.)]\s+/;
-// An itinerary-style line the AI wrote inline, e.g. "2026-11-10 09:00
+// An list-style line the AI wrote inline, e.g. "2026-11-10 09:00
 // transfer from X to Y" — common enough in lead notes (one line per leg)
 // that it's worth recognising as a list item even without an explicit
 // "- " marker. Content is kept as-is (the date is the useful part), only
@@ -13,10 +13,10 @@ const DATE_LEAD_RE = /^\d{4}-\d{2}-\d{2}(\s+\d{1,2}:\d{2})?\s+\S/;
  * Forces bullet-like markers onto their own line even when the source ran
  * them inline with no real line break before each one:
  *  - a glyph bullet (•◦‣▪●), e.g. an email body with
- *    "...arrangements • Seven disposal days: ... • Final airport transfer: ...".
+ *    "...arrangements • Packing day: ... • Final delivery: ...".
  *  - a markdown "- **Label:**" item chained after another with just a
  *    " - " separator, e.g. an AI note like
- *    "**Pickup:** X - **Drop-off:** Y - **Passengers:** 15" — common from
+ *    "**Pickup:** X - **Drop-off:** Y - **Bedrooms:** 3" — common from
  *    the complex-booking AI extraction, which writes a label/value list as
  *    one run-on line instead of real bullets. Only triggers when the dash
  *    is immediately followed by a bold marker, so it never fires on an
@@ -88,7 +88,7 @@ function toBlocks(text: string): Block[] {
     const last = blocks[blocks.length - 1];
     const type = isBullet ? "ul" : "p";
 
-    // Bullet/itinerary lines always merge into the same list regardless of a
+    // Bullet/list lines always merge into the same list regardless of a
     // blank line between them — splitRunOnSentences inserts one after every
     // sentence (including after each bulleted line), which would otherwise
     // fracture one obvious list into several single-item ones. A blank line

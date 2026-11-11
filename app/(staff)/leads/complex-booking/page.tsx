@@ -24,7 +24,7 @@ export default async function ComplexBooking() {
       <PageHead
         eyebrow="Sales Workspace"
         title="Complex Booking"
-        text="Paste a multi-day itinerary or upload a quote file — AI reads it and builds every leg for you to review before a lead is created."
+        text="Paste an enquiry or upload a document (e.g. an inventory) — AI reads it and fills in the move details for you to review before a lead is created."
       />
       <Panel>
         <ComplexBookingPage customers={customers ?? []} />

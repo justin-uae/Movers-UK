@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Bus } from "lucide-react";
+import { ArrowLeft, Truck } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateTime, formatDateAndTime } from "@/lib/formatDate";
 import { PrintButton } from "./PrintButton";
@@ -12,7 +12,7 @@ interface BrandSnapshot {
 }
 
 interface VersionRow {
-  vehicle_description: string | null;
+  van_size: string | null;
   selling_price: number;
   brand_snapshot: BrandSnapshot;
   terms_snapshot: string | null;
@@ -24,7 +24,6 @@ interface LegRow {
   destination_address: string;
   pickup_date: string | null;
   pickup_time: string | null;
-  passenger_count: number | null;
 }
 
 interface BankAccountRow {
@@ -44,7 +43,7 @@ export default async function InvoiceDownloadPage({ params }: { params: Promise<
   const { data: quote } = await admin
     .from("quotes")
     .select(
-      "id, quote_number, status, currency, brand_id, tenant_id, invoice_number, invoiced_at, customers(company_name, contact_name, email, phone, billing_address), enquiries(enquiry_legs(sequence, pickup_address, destination_address, pickup_date, pickup_time, passenger_count)), quote_versions!quotes_current_version_id_fkey(vehicle_description, selling_price, brand_snapshot, terms_snapshot)",
+      "id, quote_number, status, currency, brand_id, tenant_id, invoice_number, invoiced_at, customers(company_name, contact_name, email, phone, billing_address), enquiries(enquiry_legs(sequence, pickup_address, destination_address, pickup_date, pickup_time)), quote_versions!quotes_current_version_id_fkey(van_size, selling_price, brand_snapshot, terms_snapshot)",
     )
     .eq("public_token", token)
     .single();
@@ -99,7 +98,7 @@ export default async function InvoiceDownloadPage({ params }: { params: Promise<
                 className="grid h-12 w-12 place-items-center rounded-2xl text-white"
                 style={{ backgroundColor: brand?.primary_color ?? "#f97316" }}
               >
-                <Bus size={26} />
+                <Truck size={26} />
               </div>
               <div className="text-lg font-black text-slate-900">{brand?.name ?? "Invoice"}</div>
             </div>
@@ -153,19 +152,17 @@ export default async function InvoiceDownloadPage({ params }: { params: Promise<
                       {legs.map((leg, i) => (
                         <div key={i}>
                           <div className="font-bold">
-                            {legs.length > 1 && <span className="text-slate-400">Leg {leg.sequence} · </span>}
                             {leg.pickup_address} → {leg.destination_address}
                           </div>
                           <div className="text-xs text-slate-500">
-                            {i === 0 && version?.vehicle_description ? `${version.vehicle_description} · ` : ""}
+                            {i === 0 && version?.van_size ? `${version.van_size} · ` : ""}
                             {leg.pickup_date && formatDateAndTime(leg.pickup_date, leg.pickup_time)}
-                            {leg.passenger_count ? ` · ${leg.passenger_count} passengers` : ""}
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="font-bold">Transport service</div>
+                    <div className="font-bold">Removal service</div>
                   )}
                 </td>
                 <td className="py-4 text-right font-bold">{version ? money(version.selling_price) : "—"}</td>

@@ -62,7 +62,7 @@ export interface EmailLeadIntakeLog {
   message_id: string;
   from_address: string | null;
   subject: string | null;
-  decision: "lead_created" | "discarded_not_travel" | "discarded_no_contact" | "error";
+  decision: "lead_created" | "discarded_not_move" | "discarded_no_contact" | "error";
   lead_id: string | null;
   detail: string | null;
   created_at: string;
@@ -290,7 +290,24 @@ export type EnquiryStatus =
   | "converted_to_booking"
   | "completed";
 
-export type JourneyType = "one_way" | "return" | "disposal" | "multi_day";
+/** What a move is — captured by the website quote form on a lead (0117) and carried onto the enquiry leg (0118). Booleans are null when the question was never asked. */
+export interface MoveDetailColumns {
+  move_type: string | null;
+  property_type: string | null;
+  rooms: string | null;
+  estimated_boxes: number | null;
+  pickup_floor: string | null;
+  destination_floor: string | null;
+  lift_available: boolean | null;
+  packing_needed: boolean | null;
+  dismantling_needed: boolean | null;
+  assembly_needed: boolean | null;
+  storage_needed: boolean | null;
+  fragile_items: boolean | null;
+}
+
+/** Van sizes a move can be quoted/dispatched with (quote_versions.van_size, enquiry_legs.van_size, supplier_vehicles.van_size). */
+export const VAN_SIZES = ["Small van", "Medium van", "Large van", "Luton van", "7.5 tonne lorry"] as const;
 
 export type QuoteStatus =
   | "draft"
@@ -353,17 +370,8 @@ export interface Customer {
   updated_at: string;
 }
 
-export interface VehicleType {
-  id: string;
-  tenant_id: string;
-  name: string;
-  description: string | null;
-  seat_capacity: number;
-  is_active: boolean;
-  created_at: string;
-}
-
-export interface Lead {
+/** Move details (MoveDetailColumns) come from the website's moving-quote form — see 0117_lead_move_details.sql. */
+export interface Lead extends MoveDetailColumns {
   id: string;
   tenant_id: string;
   brand_id: string | null;
@@ -378,14 +386,10 @@ export interface Lead {
   destination_text: string | null;
   travel_date: string | null;
   pickup_time: string | null;
-  return_trip: boolean;
-  return_date: string | null;
-  return_time: string | null;
-  passenger_count: number | null;
-  luggage_count: number | null;
   is_complex_booking: boolean;
-  vehicle_requested: string | null;
   notes: string | null;
+  privacy_consent: boolean;
+  privacy_consent_at: string | null;
   utm_source: string | null;
   utm_medium: string | null;
   utm_campaign: string | null;
@@ -397,7 +401,7 @@ export interface Lead {
   updated_at: string;
 }
 
-/** Every past edit to a lead's journey/intake details, with who made it and why — see 0076_lead_edits.sql. */
+/** Every past edit to a lead's move/intake details, with who made it and why — see 0076_lead_edits.sql. */
 export interface LeadEdit {
   id: string;
   tenant_id: string;
@@ -427,28 +431,20 @@ export interface Enquiry {
   updated_at: string;
 }
 
-export interface EnquiryLeg {
+/** One move (a booking has exactly one leg, sequence 1): pickup -> destination on pickup_date, plus the move details and van size. */
+export interface EnquiryLeg extends MoveDetailColumns {
   id: string;
   enquiry_id: string;
   sequence: number;
-  journey_type: JourneyType;
   pickup_address: string;
   pickup_lat: number | null;
   pickup_lng: number | null;
   destination_address: string;
   destination_lat: number | null;
   destination_lng: number | null;
-  via_points: string[];
   pickup_date: string | null;
   pickup_time: string | null;
-  return_date: string | null;
-  return_time: string | null;
-  passenger_count: number | null;
-  luggage_count: number | null;
-  vehicle_type_id: string | null;
-  vehicle_description: string | null;
-  wheelchair_required: boolean;
-  child_seats: number;
+  van_size: string | null;
   special_requirements: string | null;
   created_at: string;
 }
@@ -481,7 +477,7 @@ export interface Quote {
   ai_generated: boolean;
   /** Which AI provider/model actually priced this quote (Settings -> AI Models -> Pricing Engine at the moment it was created) — see 0099_quote_ai_model.sql. Null for non-AI quotes and for anything created before this column existed. Set once, never updated — the tenant's live setting can change later without rewriting history. */
   ai_model: { provider: string; model: string } | null;
-  /** An on-demand OpenAI price benchmark for this quote's journey (Master Admin only, see lib/aiPriceEstimate.ts) — an internal pricing sanity check, cached here so re-viewing it doesn't re-call OpenAI. Unrelated to ai_generated: any quote, human or AI-priced, can have one computed. */
+  /** An on-demand OpenAI price benchmark for this quote's move (Master Admin only, see lib/aiPriceEstimate.ts) — an internal pricing sanity check, cached here so re-viewing it doesn't re-call OpenAI. Unrelated to ai_generated: any quote, human or AI-priced, can have one computed. */
   ai_estimated_price: number | null;
   ai_estimated_price_currency: string | null;
   ai_estimated_price_computed_at: string | null;
@@ -500,8 +496,7 @@ export interface QuoteVersion {
   id: string;
   quote_id: string;
   version_number: number;
-  vehicle_type_id: string | null;
-  vehicle_description: string | null;
+  van_size: string | null;
   supplier_estimated_cost: number | null;
   /** The total the customer pays, INCLUDING VAT when vat_rate > 0. */
   selling_price: number;
@@ -789,8 +784,7 @@ export interface SupplierEdit {
 export interface SupplierVehicle {
   id: string;
   supplier_id: string;
-  vehicle_type: string;
-  seat_capacity: number | null;
+  van_size: string | null;
   plate_number: string | null;
   notes: string | null;
   created_at: string;
@@ -938,23 +932,15 @@ export interface JobAllocationOffer {
   responded_at: string | null;
 }
 
-/** Supplier-safe read of one allocation's legs — only the legs actually in that allocation, never the whole booking's itinerary. */
-export interface JobAllocationOfferLeg {
+/** Supplier-safe read of one allocation's legs — only the legs actually in that allocation, never the whole booking. */
+export interface JobAllocationOfferLeg extends MoveDetailColumns {
   sequence: number;
-  journey_type: JourneyType;
   pickup_address: string;
   destination_address: string;
-  via_points: string[];
   pickup_date: string | null;
   pickup_time: string | null;
-  return_date: string | null;
-  return_time: string | null;
-  passenger_count: number | null;
-  luggage_count: number | null;
-  wheelchair_required: boolean;
-  child_seats: number;
+  van_size: string | null;
   special_requirements: string | null;
-  vehicle_types: { name: string } | null;
 }
 
 export interface JobAllocationOfferView {
@@ -975,14 +961,14 @@ export interface JobAllocationOfferView {
   completed_at: string | null;
   pickup_date: string | null;
   pickup_time: string | null;
-  passenger_count: number | null;
-  vehicle_type_id: string | null;
   quote_currency: string;
   pickup_address: string | null;
   destination_address: string | null;
   customer_name: string | null;
   customer_phone: string | null;
   legs: JobAllocationOfferLeg[] | null;
+  move_type: string | null;
+  van_size: string | null;
 }
 
 // -----------------------------------------------------------------------------
@@ -1058,8 +1044,8 @@ export type DocumentType =
   | "invoice"
   | "receipt"
   | "credit_note"
-  | "itinerary"
-  | "passenger_list"
+  | "move_plan"
+  | "inventory_list"
   | "quote"
   | "other";
 
@@ -1293,7 +1279,6 @@ export interface Database {
       audit_log: Table<AuditLogEntry>;
       login_history: Table<LoginHistoryEntry>;
       customers: Table<Customer>;
-      vehicle_types: Table<VehicleType>;
       leads: Table<Lead>;
       lead_edits: Table<LeadEdit>;
       enquiries: Table<Enquiry>;

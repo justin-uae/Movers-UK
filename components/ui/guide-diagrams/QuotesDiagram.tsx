@@ -61,7 +61,7 @@ export function QuotesDiagram() {
         Customer
       </Text>
       <Text x={280} y={204} size={7.5} fill={MUTED} weight={700} uppercase>
-        Journey
+        Move
       </Text>
       <Text x={430} y={204} size={7.5} fill={MUTED} weight={700} uppercase>
         Value

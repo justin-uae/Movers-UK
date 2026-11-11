@@ -5,7 +5,7 @@ import { amountDueNow } from "./quotePayments";
 import { formatDate } from "./formatDate";
 import {
   REMINDER_TEMPLATE_KEYS,
-  earliestTravelDate,
+  earliestMoveDate,
   reminderAnchor,
   reminderKindForStatus,
   reminderSchedule,
@@ -34,9 +34,9 @@ interface ReminderQuoteRow {
   brands: { name: string } | null;
   enquiries: {
     assigned_user_id: string | null;
-    enquiry_legs: { sequence: number; pickup_address: string; destination_address: string; pickup_date: string | null; vehicle_types: { name: string } | null }[];
+    enquiry_legs: { sequence: number; pickup_address: string; destination_address: string; pickup_date: string | null }[];
   } | null;
-  quote_versions: { selling_price: number; deposit_percentage: number | null; deposit_fixed_amount: number | null; vehicle_description: string | null } | null;
+  quote_versions: { selling_price: number; deposit_percentage: number | null; deposit_fixed_amount: number | null; van_size: string | null } | null;
   quote_payment_milestones: { sequence: number; amount: number }[];
   customer_payments: { id: string }[];
   quote_reminders: { kind: QuoteReminderKind; step: number }[];
@@ -68,7 +68,7 @@ export async function runQuoteReminderSweep(admin: Admin) {
     const { data: quotes, error } = await admin
       .from("quotes")
       .select(
-        "id, tenant_id, customer_id, quote_number, status, currency, sent_at, decided_at, expiry_at, public_token, created_by, reminders_resumed_at, customers(contact_name, company_name, email, reminders_opted_out_at), brands(name), enquiries(assigned_user_id, enquiry_legs(sequence, pickup_address, destination_address, pickup_date, vehicle_types(name))), quote_versions!quotes_current_version_id_fkey(selling_price, deposit_percentage, deposit_fixed_amount, vehicle_description), quote_payment_milestones(sequence, amount), customer_payments(id), quote_reminders(kind, step)",
+        "id, tenant_id, customer_id, quote_number, status, currency, sent_at, decided_at, expiry_at, public_token, created_by, reminders_resumed_at, customers(contact_name, company_name, email, reminders_opted_out_at), brands(name), enquiries(assigned_user_id, enquiry_legs(sequence, pickup_address, destination_address, pickup_date)), quote_versions!quotes_current_version_id_fkey(selling_price, deposit_percentage, deposit_fixed_amount, van_size), quote_payment_milestones(sequence, amount), customer_payments(id), quote_reminders(kind, step)",
       )
       .eq("tenant_id", tenant.id)
       .in("status", ["sent", "viewed", "accepted"])
@@ -113,7 +113,7 @@ export async function runQuoteReminderSweep(admin: Admin) {
       }
 
       const legs = [...(q.enquiries?.enquiry_legs ?? [])].sort((a, b) => a.sequence - b.sequence);
-      const schedule = reminderSchedule(kind, anchor, earliestTravelDate(legs), q.expiry_at);
+      const schedule = reminderSchedule(kind, anchor, earliestMoveDate(legs), q.expiry_at);
       const lastSentStep = Math.max(0, ...q.quote_reminders.filter((r) => r.kind === kind).map((r) => r.step));
       const now = Date.now();
       const due = schedule.filter((s) => s.step > lastSentStep && s.dueAt.getTime() <= now).pop();
@@ -130,7 +130,7 @@ export async function runQuoteReminderSweep(admin: Admin) {
 
       const version = q.quote_versions;
       const firstLeg = legs[0];
-      const travelDate = earliestTravelDate(legs);
+      const moveDate = earliestMoveDate(legs);
       const amountDue = version ? amountDueNow(version, 0, q.quote_payment_milestones) : 0;
 
       const result = await renderAndSendTemplate(admin, {
@@ -141,8 +141,8 @@ export async function runQuoteReminderSweep(admin: Admin) {
           customer_name: customer.contact_name || customer.company_name || "there",
           quote_number: q.quote_number,
           brand_name: q.brands?.name ?? "",
-          travel_date: travelDate ? formatDate(travelDate) : "your travel date",
-          vehicle: version?.vehicle_description || firstLeg?.vehicle_types?.name || "As quoted",
+          move_date: moveDate ? formatDate(moveDate) : "your move date",
+          van_size: version?.van_size || "As quoted",
           pickup: firstLeg?.pickup_address ?? "",
           destination: firstLeg?.destination_address ?? "",
           currency: q.currency,

@@ -9,7 +9,8 @@ import { recordAudit } from "@/lib/audit";
 import { extractComplexBooking, type ComplexBookingExtraction } from "@/lib/complexBookingExtraction";
 import { findDuplicateCustomer, type DuplicateCustomerMatch } from "@/lib/customerDuplicates";
 import { getAiModelSetting } from "@/lib/aiProviders";
-import type { JourneyType } from "@/lib/supabase/database.types";
+import { parseMoveDetails } from "@/lib/moveDetails";
+import type { MoveDetails } from "@/lib/moveDetails";
 
 export interface ComplexBookingFileRef {
   storagePath: string;
@@ -25,7 +26,7 @@ const DUPLICATE_SUBMISSION_WINDOW_MINUTES = 15;
  * submit this" feedback beyond a redirect — resubmitting (e.g. after a slow
  * page, or not noticing the first submit went through) silently creates a
  * second identical lead with nothing to stop it. Matched on the same
- * customer plus the exact same pasted itinerary text or uploaded file,
+ * customer plus the exact same pasted enquiry text or uploaded file,
  * within a short window — narrow enough that a genuinely new booking using
  * a similar template later doesn't get blocked.
  */
@@ -66,46 +67,40 @@ export async function extractComplexBookingAction(input: {
 
   const pastedText = input.pastedText.trim();
   if (!pastedText && !input.file) {
-    return { data: null, warning: null, error: "Paste itinerary text or upload a file first." };
+    return { data: null, warning: null, error: "Paste the enquiry text or upload a file first." };
   }
 
   try {
     const supabase = await createClient();
     const aiModel = await getAiModelSetting(supabase, actor.tenant_id, "complex_booking");
     const data = await extractComplexBooking({ pastedText: pastedText || null, file: input.file, aiModel });
-    // A partial read (e.g. the customer's details came through but no leg was
-    // recognisable) still goes to review rather than being thrown away — the
-    // review form already lets staff add a leg by hand from there.
+    // A partial read (e.g. the customer's details came through but no
+    // addresses were recognisable) still goes to review rather than being
+    // thrown away — the review form lets staff fill the rest in by hand.
     const warning =
-      data.legs.length === 0
-        ? "Couldn't find any journey legs in that itinerary — add one manually below."
+      !data.move.pickup_address.trim() || !data.move.destination_address.trim()
+        ? "Couldn't find both addresses in that enquiry — fill them in below."
         : null;
     return { data, warning, error: null };
   } catch (err) {
-    return { data: null, warning: null, error: err instanceof Error ? err.message : "Could not read this itinerary." };
+    return { data: null, warning: null, error: err instanceof Error ? err.message : "Could not read this enquiry." };
   }
 }
 
-export interface ComplexBookingLegInput {
-  journeyType: JourneyType;
+export interface ComplexBookingMoveInput {
   pickupAddress: string;
   destinationAddress: string;
-  pickupDate: string | null;
-  pickupTime: string | null;
-  returnDate: string | null;
-  returnTime: string | null;
-  passengerCount: number | null;
-  luggageCount: number | null;
-  vehicleDescription: string | null;
-  wheelchairRequired: boolean;
-  childSeats: number;
+  moveDate: string | null;
+  moveTime: string | null;
+  moveDetails: MoveDetails;
+  vanSize: string | null;
   specialRequirements: string | null;
 }
 
 export interface CreateComplexBookingInput {
   existingCustomerId: string | null;
   newCustomer: { contactName: string; companyName: string; email: string; phone: string } | null;
-  legs: ComplexBookingLegInput[];
+  move: ComplexBookingMoveInput;
   internalNotes: string | null;
   pastedText: string | null;
   sourceFile: ComplexBookingFileRef | null;
@@ -153,21 +148,16 @@ export async function createComplexBookingLeadAction(
     customerId = customer.id;
   }
 
-  if (input.legs.length === 0) {
-    return { error: "Add at least one journey leg." };
-  }
-  for (const leg of input.legs) {
-    if (!leg.pickupAddress.trim() || !leg.destinationAddress.trim()) {
-      return { error: "Every leg needs a pickup and destination address." };
-    }
+  if (!input.move.pickupAddress.trim() || !input.move.destinationAddress.trim()) {
+    return { error: "Enter both the moving-from and moving-to address." };
   }
 
   const duplicateLeadId = await findRecentDuplicateComplexBooking(supabase, actor.tenant_id, customerId, input.pastedText, input.sourceFile);
   if (duplicateLeadId) {
-    return { error: "It looks like this itinerary was already submitted a few minutes ago for this customer — check My Leads before submitting again." };
+    return { error: "It looks like this enquiry was already submitted a few minutes ago for this customer — check My Leads before submitting again." };
   }
 
-  const firstLeg = input.legs[0]!;
+  const move = input.move;
 
   const { data: lead, error: leadError } = await supabase
     .from("leads")
@@ -179,10 +169,11 @@ export async function createComplexBookingLeadAction(
       customer_id: customerId,
       assigned_user_id: actor.id,
       claimed_at: new Date().toISOString(),
-      pickup_text: firstLeg.pickupAddress,
-      destination_text: firstLeg.destinationAddress,
-      travel_date: firstLeg.pickupDate,
-      passenger_count: firstLeg.passengerCount,
+      pickup_text: move.pickupAddress,
+      destination_text: move.destinationAddress,
+      travel_date: move.moveDate,
+      pickup_time: move.moveTime,
+      ...parseMoveDetails(move.moveDetails),
       notes: input.internalNotes,
       is_complex_booking: true,
       raw_payload: {
@@ -218,25 +209,17 @@ export async function createComplexBookingLeadAction(
     return { error: enquiryError?.message ?? "Could not create the enquiry." };
   }
 
-  const { error: legsError } = await supabase.from("enquiry_legs").insert(
-    input.legs.map((leg, i) => ({
-      enquiry_id: enquiry.id,
-      sequence: i + 1,
-      journey_type: leg.journeyType,
-      pickup_address: leg.pickupAddress,
-      destination_address: leg.destinationAddress,
-      pickup_date: leg.pickupDate,
-      pickup_time: leg.pickupTime,
-      return_date: leg.journeyType === "return" ? leg.returnDate : null,
-      return_time: leg.journeyType === "return" ? leg.returnTime : null,
-      passenger_count: leg.passengerCount,
-      luggage_count: leg.luggageCount,
-      vehicle_description: leg.vehicleDescription,
-      wheelchair_required: leg.wheelchairRequired,
-      child_seats: leg.childSeats,
-      special_requirements: leg.specialRequirements,
-    })),
-  );
+  const { error: legsError } = await supabase.from("enquiry_legs").insert({
+    enquiry_id: enquiry.id,
+    sequence: 1,
+    pickup_address: move.pickupAddress,
+    destination_address: move.destinationAddress,
+    pickup_date: move.moveDate,
+    pickup_time: move.moveTime,
+    ...parseMoveDetails(move.moveDetails),
+    van_size: move.vanSize,
+    special_requirements: move.specialRequirements,
+  });
 
   if (legsError) {
     return { error: legsError.message };
@@ -248,7 +231,7 @@ export async function createComplexBookingLeadAction(
     // reachable only via Storage directly instead of the Documents module.
     await supabase.from("documents").insert({
       tenant_id: actor.tenant_id,
-      doc_type: "itinerary",
+      doc_type: "inventory_list",
       label: input.sourceFile.fileName,
       storage_path: input.sourceFile.storagePath,
       file_name: input.sourceFile.fileName,
@@ -265,7 +248,7 @@ export async function createComplexBookingLeadAction(
     action: "lead_created_complex_booking",
     entityType: "lead",
     entityId: lead.id,
-    newValue: { customerId, legCount: input.legs.length, enquiryId: enquiry.id },
+    newValue: { customerId, enquiryId: enquiry.id },
   });
 
   revalidatePath("/leads");

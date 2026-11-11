@@ -11,6 +11,7 @@ import { sendWhatsAppTemplate, normalizeWhatsAppNumber, WHATSAPP_TEMPLATE_HEADER
 import { cancelAllocation } from "@/lib/dispatchAllocations";
 import type { Database, Profile } from "@/lib/supabase/database.types";
 import { BRAND } from "@/lib/brandConfig";
+import { shortMoveSummary } from "@/lib/moveDetails";
 
 // The user who created the job (i.e. the sales user who marked its quote as
 // paid) can always dispatch its allocations themselves — this is the normal
@@ -61,7 +62,7 @@ export async function createAllocationAction(
   const actor = await requireProfile();
   const supabase = await createClient();
 
-  if (legIds.length === 0) throw new Error("Select at least one journey leg.");
+  if (legIds.length === 0) throw new Error("Select the move to allocate.");
 
   const { data: job } = await supabase
     .from("jobs")
@@ -117,7 +118,7 @@ export async function editAllocationLegsAction(allocationId: string, legIds: str
   const actor = await requireProfile();
   const supabase = await createClient();
 
-  if (legIds.length === 0) throw new Error("Select at least one journey leg.");
+  if (legIds.length === 0) throw new Error("Select the move to allocate.");
 
   const ctx = await loadAllocationContext(supabase, allocationId);
   if (!ctx || ctx.tenantId !== actor.tenant_id) throw new Error("Allocation not found.");
@@ -222,7 +223,7 @@ export async function offerAllocationToSuppliersAction(allocationId: string, sup
 
   const { data: legRows } = await supabase
     .from("job_allocation_legs")
-    .select("enquiry_legs(sequence, pickup_date, pickup_time, passenger_count)")
+    .select("enquiry_legs(sequence, pickup_date, pickup_time, van_size, move_type, property_type, rooms)")
     .eq("job_allocation_id", allocationId);
   const legs = (legRows ?? [])
     .map(
@@ -231,7 +232,10 @@ export async function offerAllocationToSuppliersAction(allocationId: string, sup
           sequence: number;
           pickup_date: string | null;
           pickup_time: string | null;
-          passenger_count: number | null;
+          van_size: string | null;
+          move_type: string | null;
+          property_type: string | null;
+          rooms: string | null;
         } | null,
     )
     .filter((l): l is NonNullable<typeof l> => !!l)
@@ -286,7 +290,7 @@ export async function offerAllocationToSuppliersAction(allocationId: string, sup
         region: job.region ?? "—",
         pickup_date: firstLeg?.pickup_date ?? "TBC",
         pickup_time: firstLeg?.pickup_time ?? "",
-        passenger_count: String(firstLeg?.passenger_count ?? "—"),
+        move_summary: firstLeg ? shortMoveSummary(firstLeg) : "—",
         link: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/supplier/dashboard/${allocationId}`,
       },
     });
@@ -302,7 +306,7 @@ export async function offerAllocationToSuppliersAction(allocationId: string, sup
           job.region ?? "—",
           firstLeg?.pickup_date ?? "TBC",
           firstLeg?.pickup_time ?? "TBC",
-          String(firstLeg?.passenger_count ?? "—"),
+          firstLeg ? shortMoveSummary(firstLeg) : "—",
         ],
         allocationId,
         WHATSAPP_TEMPLATE_HEADER_IMAGE_URL,

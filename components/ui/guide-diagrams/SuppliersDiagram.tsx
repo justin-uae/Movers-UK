@@ -50,10 +50,10 @@ export function SuppliersDiagram() {
 
       {/* Row 1 — awaiting review */}
       <Text x={20} y={158} size={9} weight={800}>
-        City Transfers LLC
+        City Removals LLC
       </Text>
       <Text x={20} y={171} size={8} fill={MUTED}>
-        ops@citytransfers.example
+        ops@cityremovals.example
       </Text>
       <Text x={280} y={166} size={8.5} fill="#475569">
         Company

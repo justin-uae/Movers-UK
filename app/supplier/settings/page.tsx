@@ -10,7 +10,7 @@ const CARDS = [
     label: "Business Details",
     href: "/supplier/settings/business",
     icon: Building2,
-    text: "Contact info, registration, insurance, license and your vehicle fleet.",
+    text: "Contact info, registration, insurance, licence and your vans.",
   },
   {
     label: "Documents",

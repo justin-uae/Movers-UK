@@ -15,14 +15,13 @@ export interface EmailCrmContext {
     expiry_at: string | null;
     lead_id: string | null;
   } | null;
-  trip: {
+  move: {
     pickup: string;
     destination: string;
     date: string | null;
     time: string | null;
-    passengers: number | null;
-    vehicle: string | null;
-    legCount: number;
+    moveType: string | null;
+    vanSize: string | null;
   } | null;
   customer: { id: string; name: string; company: string | null } | null;
   supplier: { id: string; name: string } | null;
@@ -56,7 +55,7 @@ export interface EmailConversation {
 const QUOTE_NUMBER_RE = /\bQT-\d{3,}\b/i;
 const OPEN_QUOTE_STATUSES = new Set<QuoteStatus>(["draft", "sent", "viewed", "accepted", "partially_paid"]);
 const QUOTE_SELECT =
-  "id, quote_number, status, currency, expiry_at, customer_id, created_at, enquiries(lead_id, enquiry_legs(sequence, pickup_address, destination_address, pickup_date, pickup_time, passenger_count, vehicle_types(name))), quote_versions!quotes_current_version_id_fkey(selling_price, vehicle_description)";
+  "id, quote_number, status, currency, expiry_at, customer_id, created_at, enquiries(lead_id, enquiry_legs(sequence, pickup_address, destination_address, pickup_date, pickup_time, move_type, van_size)), quote_versions!quotes_current_version_id_fkey(selling_price, van_size)";
 
 interface QuoteRow {
   id: string;
@@ -74,11 +73,11 @@ interface QuoteRow {
       destination_address: string;
       pickup_date: string | null;
       pickup_time: string | null;
-      passenger_count: number | null;
-      vehicle_types: { name: string } | null;
+      move_type: string | null;
+      van_size: string | null;
     }[];
   } | null;
-  quote_versions: { selling_price: number; vehicle_description: string | null } | null;
+  quote_versions: { selling_price: number; van_size: string | null } | null;
 }
 
 /**
@@ -225,8 +224,7 @@ export async function buildEmailConversations(supabase: Supabase, messages: Emai
       const latest = thread[thread.length - 1]!;
       const customer = emailCustomer ?? (quote ? customers.get(quote.customer_id) ?? null : null);
       const legs = [...(quote?.enquiries?.enquiry_legs ?? [])].sort((a, b) => a.sequence - b.sequence);
-      const firstLeg = legs[0];
-      const lastLeg = legs[legs.length - 1];
+      const move = legs[0];
       const context: EmailCrmContext = {
         quote: quote
           ? {
@@ -239,15 +237,14 @@ export async function buildEmailConversations(supabase: Supabase, messages: Emai
               lead_id: quote.enquiries?.lead_id ?? null,
             }
           : null,
-        trip: firstLeg
+        move: move
           ? {
-              pickup: firstLeg.pickup_address,
-              destination: lastLeg!.destination_address,
-              date: firstLeg.pickup_date,
-              time: firstLeg.pickup_time,
-              passengers: firstLeg.passenger_count,
-              vehicle: firstLeg.vehicle_types?.name ?? quote?.quote_versions?.vehicle_description ?? null,
-              legCount: legs.length,
+              pickup: move.pickup_address,
+              destination: move.destination_address,
+              date: move.pickup_date,
+              time: move.pickup_time,
+              moveType: move.move_type,
+              vanSize: quote?.quote_versions?.van_size ?? move.van_size,
             }
           : null,
         customer: customer ? { id: customer.id, name: customer.contact_name, company: customer.company_name } : null,

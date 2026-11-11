@@ -9,6 +9,7 @@ import { recordAudit } from "@/lib/audit";
 import { findDuplicateCustomer, type DuplicateCustomerMatch } from "@/lib/customerDuplicates";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { instantAutoQuoteNewLead } from "@/lib/aiAutoQuote";
+import { parseMoveDetails } from "@/lib/moveDetails";
 
 export async function createEnquiryAction(
   _prevState: { error: string | null; duplicate?: DuplicateCustomerMatch | null },
@@ -62,11 +63,8 @@ export async function createEnquiryAction(
 
   const pickupDate = String(formData.get("pickupDate") ?? "").trim() || null;
   const pickupTime = String(formData.get("pickupTime") ?? "").trim() || null;
-  const journeyType = String(formData.get("journeyType") ?? "one_way");
-  const returnDate = journeyType === "return" ? String(formData.get("returnDate") ?? "").trim() || null : null;
-  const returnTime = journeyType === "return" ? String(formData.get("returnTime") ?? "").trim() || null : null;
-  const luggageCount = Number(formData.get("luggageCount") ?? 0) || null;
-  const passengerCount = Number(formData.get("passengerCount") ?? 0) || null;
+  const moveDetails = parseMoveDetails(formData.get("moveDetails"));
+  const vanSize = String(formData.get("vanSize") ?? "").trim() || null;
   const specialRequirements = String(formData.get("specialRequirements") ?? "").trim() || null;
 
   // Manual/walk-in entries create a real lead — assigned directly to the
@@ -88,13 +86,9 @@ export async function createEnquiryAction(
       travel_date: pickupDate,
       // Mirrored onto the lead (not just the enquiry leg below) because the
       // instant AI quote prices from the lead's own fields, same as every
-      // other lead source — without these a return trip would price one-way.
+      // other lead source.
       pickup_time: pickupTime,
-      return_trip: journeyType === "return",
-      return_date: returnDate,
-      return_time: returnTime,
-      luggage_count: luggageCount,
-      passenger_count: passengerCount,
+      ...moveDetails,
       notes: specialRequirements,
     })
     .select()
@@ -123,8 +117,6 @@ export async function createEnquiryAction(
     return { error: enquiryError?.message ?? "Could not create the enquiry." };
   }
 
-  const childSeats = Number(formData.get("childSeats") ?? 0) || 0;
-
   const pickupLat = formData.get("pickupLat") ? Number(formData.get("pickupLat")) : null;
   const pickupLng = formData.get("pickupLng") ? Number(formData.get("pickupLng")) : null;
   const destinationLat = formData.get("destinationLat") ? Number(formData.get("destinationLat")) : null;
@@ -133,7 +125,6 @@ export async function createEnquiryAction(
   const { error: legError } = await supabase.from("enquiry_legs").insert({
     enquiry_id: enquiry.id,
     sequence: 1,
-    journey_type: journeyType,
     pickup_address: pickupAddress,
     pickup_lat: pickupLat,
     pickup_lng: pickupLng,
@@ -142,13 +133,8 @@ export async function createEnquiryAction(
     destination_lng: destinationLng,
     pickup_date: pickupDate,
     pickup_time: pickupTime,
-    return_date: returnDate,
-    return_time: returnTime,
-    passenger_count: passengerCount,
-    luggage_count: luggageCount,
-    vehicle_type_id: String(formData.get("vehicleTypeId") ?? "").trim() || null,
-    wheelchair_required: formData.get("wheelchairRequired") === "on",
-    child_seats: childSeats,
+    ...moveDetails,
+    van_size: vanSize,
     special_requirements: specialRequirements,
   });
 

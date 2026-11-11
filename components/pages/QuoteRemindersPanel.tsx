@@ -4,7 +4,7 @@ import { SectionTitle } from "@/components/ui/SectionTitle";
 import { formatDateTime } from "@/lib/formatDate";
 import {
   REMINDER_OFFSETS_HOURS,
-  earliestTravelDate,
+  earliestMoveDate,
   reminderAnchor,
   reminderKindForStatus,
   reminderSchedule,
@@ -87,7 +87,7 @@ export function QuoteRemindersPanel({
   const start = kind === "sales" ? sentAt : kind === "payment" ? decidedAt : null;
   const steps: { step: number; label: string; state: StepState; when: string | null; error: string | null }[] = [];
   if (kind && start) {
-    const schedule = reminderSchedule(kind, reminderAnchor(start, enabledAt), earliestTravelDate(legs), expiryAt);
+    const schedule = reminderSchedule(kind, reminderAnchor(start, enabledAt), earliestMoveDate(legs), expiryAt);
     const sentForKind = new Map(reminders.filter((r) => r.kind === kind).map((r) => [r.step, r]));
     const lastSent = Math.max(0, ...sentForKind.keys());
     const now = Date.now();
@@ -112,7 +112,7 @@ export function QuoteRemindersPanel({
     skipped: () => "Skipped",
     due: () => "Due now — goes out within 15 minutes",
     upcoming: (w) => (w ? formatDateTime(w) : ""),
-    wont_send: () => "Won't send — too close to the trip or quote expiry",
+    wont_send: () => "Won't send — too close to the move or quote expiry",
   };
   const active = enabled && !notice;
 

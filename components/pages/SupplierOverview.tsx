@@ -52,7 +52,7 @@ export function SupplierOverview({
               <div>
                 <b>{job.region ?? "Region not set"}</b>
                 <div className="text-xs text-slate-500">
-                  {job.pickup_date ? formatDateAndTime(job.pickup_date, job.pickup_time) : "Date TBC"} · {job.passenger_count ?? "?"} passengers
+                  {job.pickup_date ? formatDateAndTime(job.pickup_date, job.pickup_time) : "Date TBC"} · {job.move_type ?? "Move"}
                 </div>
               </div>
               <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusBadgeStyle(job)}`}>{statusLabel(job)}</span>

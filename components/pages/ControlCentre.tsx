@@ -18,7 +18,7 @@ import {
   CircleDollarSign,
   TrendingUp,
   Users,
-  Bus,
+  Truck,
   MapPin,
   ShieldAlert,
 } from "lucide-react";
@@ -102,7 +102,7 @@ export function ControlCentre({
           title="Jobs operating"
           value={String(kpis.jobsOperating)}
           delta={`${kpis.jobsNeedingAttention} need attention`}
-          icon={Bus}
+          icon={Truck}
           warn={kpis.jobsNeedingAttention > 0}
           href="/dispatch"
         />

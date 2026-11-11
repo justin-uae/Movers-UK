@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Bus } from "lucide-react";
+import { Truck } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stopRemindersAction } from "./actions";
 
@@ -23,7 +23,7 @@ export default async function StopRemindersPage({ params }: { params: Promise<{ 
       <div className="w-full max-w-md">
         <div className="mb-6 flex items-center justify-center gap-3">
           <div className="grid h-12 w-12 place-items-center rounded-2xl text-white" style={{ backgroundColor: brand?.primary_color ?? "#f97316" }}>
-            <Bus size={26} />
+            <Truck size={26} />
           </div>
           <div className="text-lg font-black text-slate-900">{brand?.name ?? "Your quote"}</div>
         </div>

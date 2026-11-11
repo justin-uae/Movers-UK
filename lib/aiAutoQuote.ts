@@ -10,8 +10,10 @@ import { renderAndSendTemplate } from "./emailTemplates";
 import { generateQuotePdf } from "./quotePdf";
 import { persistGeneratedPdf } from "./documentArchive";
 import { sendWhatsAppTemplate, normalizeWhatsAppNumber, WHATSAPP_TEMPLATE_HEADER_IMAGE_URL } from "./whatsapp360";
-import { estimateTripDistance } from "./tripDistance";
+import { estimateMoveDistance } from "./moveDistance";
 import { BRAND } from "./brandConfig";
+import { moveDetailsSummary, pickMoveDetails, type MoveDetails } from "./moveDetails";
+import { VAN_SIZES } from "./supabase/database.types";
 
 type Admin = SupabaseClient<Database>;
 
@@ -45,7 +47,7 @@ type Admin = SupabaseClient<Database>;
 export const NOT_QUOTABLE_STATUSES = ["converted", "closed", "spam", "duplicate", "expired"] as const;
 
 export const LEAD_FOR_SWEEP_COLUMNS =
-  "id, tenant_id, brand_id, customer_id, assigned_user_id, source, pickup_text, destination_text, travel_date, pickup_time, return_trip, return_date, return_time, passenger_count, luggage_count, vehicle_requested, notes, created_at, claimed_at";
+  "id, tenant_id, brand_id, customer_id, assigned_user_id, source, pickup_text, destination_text, travel_date, pickup_time, notes, move_type, property_type, rooms, estimated_boxes, pickup_floor, destination_floor, lift_available, packing_needed, dismantling_needed, assembly_needed, storage_needed, fragile_items, created_at, claimed_at";
 
 export type AiQuoteTrigger = "sla_breach" | "whatsapp_lead" | "manual_assign" | "website_lead" | "email_lead" | "manual_lead";
 
@@ -58,7 +60,7 @@ const LEAD_AUDIT_ACTION_FOR_TRIGGER: Record<AiQuoteTrigger, string> = {
   manual_lead: "ai_quote_created_manual_lead",
 };
 
-export interface LeadForSweep {
+export interface LeadForSweep extends MoveDetails {
   id: string;
   tenant_id: string;
   brand_id: string | null;
@@ -69,19 +71,13 @@ export interface LeadForSweep {
   destination_text: string | null;
   travel_date: string | null;
   pickup_time: string | null;
-  return_trip: boolean;
-  return_date: string | null;
-  return_time: string | null;
-  passenger_count: number | null;
-  luggage_count: number | null;
-  vehicle_requested: string | null;
   notes: string | null;
   created_at: string;
   claimed_at: string | null;
 }
 
 export interface PricingEstimate {
-  vehicle_description: string;
+  van_size: string;
   currency: string;
   supplier_estimated_cost: number;
   selling_price: number;
@@ -92,48 +88,48 @@ export interface PricingEstimate {
 const PRICING_SCHEMA = {
   type: "object",
   properties: {
-    vehicle_description: {
+    van_size: {
       type: "string",
-      description: "A short description of the vehicle you'd recommend for this group size (e.g. \"16-seat minibus\", \"49-seat coach\").",
+      description: `The van size you'd recommend for this move — one of: ${VAN_SIZES.join(", ")} (or e.g. "2 × Luton van" for a very large move).`,
     },
     currency: {
       type: "string",
       description:
-        "The ISO 4217 currency code. If the instructions name a specific currency to price in, use exactly that. Otherwise: the code (e.g. USD, EUR, GBP, AED, INR, JPY) for the country where this trip actually takes place — work it out from the pickup/destination locations, not the company's own home currency. If you can't confidently tell which country/currency applies from the addresses given, use USD as the safe default — never default to EUR.",
+        "The ISO 4217 currency code. If the instructions name a specific currency to price in, use exactly that. Otherwise GBP for a move within the UK, or the currency of the country the move starts in for an international move.",
     },
     supplier_estimated_cost: {
       type: "number",
-      description: "Your best estimate of what it would cost to hire a supplier/driver to run this trip, in the currency you chose above. Must be greater than 0.",
+      description: "Your best estimate of what it would cost to have a removals crew and van carry out this move, in the currency you chose above. Must be greater than 0.",
     },
     selling_price: {
       type: "number",
       description:
-        "The price to charge the customer, in the currency you chose above — a realistic market rate for this route/vehicle/date, with a sensible margin (roughly 20-35%) over supplier_estimated_cost. Must be greater than supplier_estimated_cost.",
+        "The price to charge the customer, in the currency you chose above — a realistic UK market rate for this move, with a sensible margin (roughly 20-35%) over supplier_estimated_cost. Must be greater than supplier_estimated_cost.",
     },
     customer_notes: {
       type: "string",
-      description: "One or two warm, professional sentences for the customer explaining what's included — shown on the quote itself.",
+      description: "One or two warm, professional sentences for the customer explaining what's included (van, crew, any packing/dismantling/storage) — shown on the quote itself.",
     },
     pricing_rationale: {
       type: "string",
       description:
-        "For internal staff eyes only — a detailed, multi-sentence breakdown of how you arrived at this price, covering: (1) why this vehicle size/class for this passenger count, (2) how many hours the vehicle/driver is effectively committed for and why that drives the price more than raw distance on a day-hire/waiting-time job, (3) the distance and what it contributes to cost, (4) a realistic supplier cost RANGE (not just the single figure above) and what's in it (driver time, fuel, vehicle costs, overheads), (5) the recommended selling price with its margin as a percentage over supplier cost, and why that margin is fair for this job. Write it the way an experienced transport pricing analyst would explain their reasoning to a colleague, not a one-line summary.",
+        "For internal staff eyes only — a detailed, multi-sentence breakdown of how you arrived at this price, covering: (1) the van size and crew size for this property and why, (2) estimated hours on site for loading and unloading given the rooms, boxes, floors and lift access, (3) the drive time/distance and what it contributes to cost, (4) the cost of any extra services requested (packing, dismantling, assembly, storage, fragile items), (5) a realistic supplier cost RANGE (not just the single figure above) and what's in it, and (6) the recommended selling price with its margin as a percentage over supplier cost, and why that margin is fair for this job. Write it the way an experienced removals estimator would explain their reasoning to a colleague, not a one-line summary.",
     },
   },
-  required: ["vehicle_description", "currency", "supplier_estimated_cost", "selling_price", "customer_notes", "pricing_rationale"],
+  required: ["van_size", "currency", "supplier_estimated_cost", "selling_price", "customer_notes", "pricing_rationale"],
   additionalProperties: false,
 } as const;
 
 const CURRENCY_CODE_RE = /^[A-Z]{3}$/;
 
 /**
- * The one, single pricing brain for "what should this trip cost" — used
+ * The one, single pricing brain for "what should this move cost" — used
  * both to actually price and send a quote unattended (createAndSendQuote
  * below) AND, via lib/aiPriceEstimate.ts, as the Master-Admin benchmark
  * button on an existing quote. Those two used to run two separately-
  * prompted AI calls that reasoned completely differently (this one: supplier
  * cost then a margin on top; the other: a flat "market rate per km") and
- * disagreed by 3x on the same kind of trip in real testing — rather than
+ * disagreed by 3x on the same kind of job in real testing — rather than
  * maintain two pricing philosophies that happen to agree sometimes, the
  * benchmark tool now calls this exact function too.
  */
@@ -144,68 +140,47 @@ export async function estimatePricing(
   options?: {
     realDistanceKm?: number;
     realDurationMinutes?: number;
-    /** Price in exactly this ISO currency (Settings -> AI Assistant, 0109) instead of the trip country's own. */
+    /** Price in exactly this ISO currency (Settings -> AI Assistant, 0109) instead of the move country's own. */
     currency?: string;
+    /** A van size already chosen for this move (e.g. on an existing quote) — the estimate prices that van rather than picking its own. */
+    vanSize?: string | null;
   },
 ): Promise<PricingEstimate> {
   const fixedCurrency = options?.currency?.toUpperCase().trim() || null;
-  // When both times are known and the trip is a same-day return, the vehicle
-  // and driver are realistically committed for the whole gap between drop-off
-  // and the return pickup, not just the two drive legs — that's a day-rate
-  // job, not two separate transfers, and materially changes the price. Left
-  // null (and left for the model to reason about from the dates/times given)
-  // whenever either time is missing or the return is a different day.
-  let committedHours: number | null = null;
-  if (lead.return_trip && lead.pickup_time && lead.return_time && lead.travel_date && (lead.return_date ?? lead.travel_date) === lead.travel_date) {
-    const [ph, pm] = lead.pickup_time.split(":").map(Number);
-    const [rh, rm] = lead.return_time.split(":").map(Number);
-    if (ph !== undefined && pm !== undefined && rh !== undefined && rm !== undefined) {
-      const diff = rh * 60 + rm - (ph * 60 + pm);
-      if (diff > 0) committedHours = Math.round((diff / 60) * 10) / 10;
-    }
-  }
-
   const parsed = await runAiStructuredTask<PricingEstimate>({
     provider: aiModel.provider,
     model: aiModel.model,
-    // The reasoning this prompt asks for (vehicle class, hours committed, a
+    // The reasoning this prompt asks for (van and crew size, hours on site, a
     // real supplier-cost range before landing on a number) is what keeps
     // this landing close to a careful human estimate instead of anchoring on
-    // a generic per-km rate — see the Settings -> AI Models page for why a
+    // a generic per-mile rate — see the Settings -> AI Models page for why a
     // fast/"mini"-tier model per provider isn't offered here.
     instructions:
-      `You are a pricing analyst for ${brandName}, a coach and transport hire company. A lead has gone unquoted too ` +
-      `long, so you're pricing and quoting the trip yourself based on typical market rates for private transport hire. ` +
-      `Give a realistic, fair estimate — never a placeholder or round guess. ` +
+      `You are a removals estimator for ${brandName}, a UK removals company (house and flat removals, man and van, office ` +
+      `relocation, packing and storage). You're pricing and quoting this move yourself based on typical UK market rates for ` +
+      `removals. Give a realistic, fair estimate — never a placeholder or round guess. ` +
       (fixedCurrency
-        ? `Price it in ${fixedCurrency} — every amount (supplier cost and selling price) must be in ${fixedCurrency}, and the currency field must be "${fixedCurrency}", whatever country the trip is in. `
-        : `Price it in the currency of the country where the trip is taking place, not any other currency. `) +
+        ? `Price it in ${fixedCurrency} — every amount (supplier cost and selling price) must be in ${fixedCurrency}, and the currency field must be "${fixedCurrency}". `
+        : `Price it in GBP for a move within the UK. `) +
       `This quote is always full payment upfront, no deposit option — don't mention a deposit or part-payment in customer_notes. ` +
-      `If the trip has a return leg on the same day, the vehicle and driver are committed for the whole time between the ` +
-      `outbound drop-off and the return pickup, not just the two drive legs — price it as a day-hire/waiting-time job at ` +
-      `that point (a driver sitting idle for several hours still has to be paid), not as two one-way transfers added together. ` +
-      `Size the vehicle for the full passenger count given, and reason explicitly about vehicle class, hours committed, and ` +
-      `distance before settling on a number — never anchor on a generic per-km airport-transfer rate for a multi-hour booking.`,
+      `Work out the van size and crew size from the property type, number of rooms and estimated boxes; estimate the hours on ` +
+      `site for loading and unloading, adding time for upper floors without a lift; add the drive time between the two addresses; ` +
+      `and add the cost of any extra services requested (packing, furniture dismantling/assembly, storage, fragile or special ` +
+      `items). Reason explicitly about crew, van, hours and distance before settling on a number — never anchor on a flat ` +
+      `per-mile rate.`,
     content: [
       {
         type: "text",
         text: [
-          `Pickup: ${lead.pickup_text ?? "Not specified"}`,
-          `Destination: ${lead.destination_text ?? "Not specified"}`,
+          `Moving from: ${lead.pickup_text ?? "Not specified"}`,
+          `Moving to: ${lead.destination_text ?? "Not specified"}`,
           options?.realDistanceKm
-            ? `Real driving distance (from mapping data — this is already the TOTAL for the whole trip, including the return leg if there is one; use this exact figure, do not re-estimate or re-double it): ${options.realDistanceKm} km, approx ${options.realDurationMinutes ?? "?"} minutes`
+            ? `Real driving distance between the two addresses (from mapping data — use this exact figure, do not re-estimate it): ${options.realDistanceKm} km, approx ${options.realDurationMinutes ?? "?"} minutes`
             : null,
-          `Travel date: ${lead.travel_date ?? "Not specified"}`,
-          lead.pickup_time ? `Pickup time: ${lead.pickup_time}` : null,
-          lead.return_trip
-            ? `Return date: ${lead.return_date ?? "Not specified"}${lead.return_time ? `, return time: ${lead.return_time}` : ""}`
-            : "One-way trip",
-          committedHours !== null
-            ? `The vehicle/driver is effectively committed for approximately ${committedHours} hours in total (pickup to return pickup, same day) — price this as a day-hire/waiting-time booking.`
-            : null,
-          `Passengers: ${lead.passenger_count ?? "Not specified"}`,
-          lead.luggage_count ? `Luggage: ${lead.luggage_count} pieces` : null,
-          lead.vehicle_requested ? `Customer requested vehicle: ${lead.vehicle_requested}` : null,
+          `Move date: ${lead.travel_date ?? "Not specified"}`,
+          lead.pickup_time ? `Preferred start time: ${lead.pickup_time}` : null,
+          moveDetailsSummary(lead) ? `Move details:\n${moveDetailsSummary(lead)}` : "Move details: not specified",
+          options?.vanSize ? `Van size already chosen for this move: ${options.vanSize}` : null,
           lead.notes ? `Notes: ${lead.notes}` : null,
         ]
           .filter(Boolean)
@@ -317,17 +292,12 @@ async function ensureEnquiry(admin: Admin, lead: LeadForSweep, aiProfileId: stri
   const { error: legError } = await admin.from("enquiry_legs").insert({
     enquiry_id: enquiry.id,
     sequence: 1,
-    journey_type: lead.return_trip ? "return" : "one_way",
     pickup_address: lead.pickup_text ?? "Unknown",
     destination_address: lead.destination_text ?? "Unknown",
     pickup_date: lead.travel_date,
     pickup_time: asPgTime(lead.pickup_time),
-    return_date: lead.return_trip ? lead.return_date : null,
-    return_time: lead.return_trip ? asPgTime(lead.return_time) : null,
-    passenger_count: lead.passenger_count,
-    luggage_count: lead.luggage_count,
-    special_requirements:
-      [lead.vehicle_requested ? `Vehicle requested: ${lead.vehicle_requested}` : null, lead.notes].filter(Boolean).join(" — ") || null,
+    ...pickMoveDetails(lead),
+    special_requirements: lead.notes,
   });
   if (legError) throw new Error(legError.message);
 
@@ -383,15 +353,11 @@ export async function createAndSendQuote(
   // Same real-distance grounding the Master Admin "Get AI estimate" button
   // gets (lib/aiPriceEstimate.ts) — without this the model has to guess the
   // geography AND the price from two address strings alone, which is what
-  // made repeated estimates for the same unchanged trip swing wildly before
-  // (see the note on `estimatePricing` above). A lead's return trip is one
-  // pickup/destination pair plus its own return date/time, not a separate
-  // leg, so the measured one-way distance is doubled to cover the drive
-  // back too — same fix as the round-trip bug in lib/aiPriceEstimate.ts and
-  // lib/quotePricingBenchmark.ts.
-  const legDistance = await estimateTripDistance(lead.pickup_text, lead.destination_text);
-  const realDistanceKm = legDistance ? (lead.return_trip ? Math.round(legDistance.distanceKm * 2 * 10) / 10 : legDistance.distanceKm) : undefined;
-  const realDurationMinutes = legDistance ? (lead.return_trip ? legDistance.durationMinutes * 2 : legDistance.durationMinutes) : undefined;
+  // made repeated estimates for the same unchanged move swing wildly before
+  // (see the note on `estimatePricing` above).
+  const moveDistance = await estimateMoveDistance(lead.pickup_text, lead.destination_text);
+  const realDistanceKm = moveDistance?.distanceKm;
+  const realDurationMinutes = moveDistance?.durationMinutes;
 
   const aiModel = await getAiModelSetting(admin, lead.tenant_id, "pricing_engine");
   // Always priced in the tenant's configured AI quote currency (Settings ->
@@ -456,8 +422,7 @@ export async function createAndSendQuote(
     .insert({
       quote_id: quote.id,
       version_number: 1,
-      vehicle_type_id: null,
-      vehicle_description: pricing.vehicle_description,
+      van_size: pricing.van_size,
       supplier_estimated_cost: pricing.supplier_estimated_cost,
       selling_price: pricing.selling_price,
       currency,
@@ -653,7 +618,7 @@ export async function runAiAutoQuoteSweep(admin: Admin): Promise<SweepResult> {
     const countdownStart = enabledAt && enabledAt > leadBase ? new Date(enabledAt) : new Date(leadBase);
     if (businessHoursElapsed(countdownStart, now) < slaHours) continue;
 
-    // A trip whose date has already passed can't be served — same guard as
+    // A move whose date has already passed can't be served — same guard as
     // healExpiredLeads (lib/leadExpiry.ts), left for a human to close out
     // rather than auto-quoted for a date that's gone.
     if (lead.travel_date && lead.travel_date < today) continue;
@@ -691,7 +656,7 @@ const INSTANT_SOURCE_CONFIG: Record<InstantQuoteSource, { flag: "website_auto_qu
  * 0106_instant_auto_quote_sources.sql). Same pricing engine, same email +
  * WhatsApp send (alsoSendWhatsApp), same guards as an assign-to-AI: a lead
  * missing its pickup, destination, customer or brand, a duplicate/closed
- * one, or one whose travel date has already passed is left for a human.
+ * one, or one whose move date has already passed is left for a human.
  *
  * Never throws — the lead itself was already created successfully and a
  * human can always quote it, so a failure here is logged and reported as
@@ -717,7 +682,7 @@ export async function instantAutoQuoteNewLead(
     if (!l.pickup_text || !l.destination_text || !l.customer_id || !l.brand_id) {
       return { quoted: false, reason: "Missing pickup, destination, customer or brand." };
     }
-    if (l.travel_date && l.travel_date < new Date().toISOString().slice(0, 10)) return { quoted: false, reason: "Travel date has passed." };
+    if (l.travel_date && l.travel_date < new Date().toISOString().slice(0, 10)) return { quoted: false, reason: "Move date has passed." };
 
     const aiProfileId = await getAiProfileId(admin, l.tenant_id);
     await createAndSendQuote(admin, l, aiProfileId, { trigger, alsoSendWhatsApp: true, actorId: options.actorId ?? null });

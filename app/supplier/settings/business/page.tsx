@@ -9,7 +9,7 @@ export default async function SupplierBusinessDetailsPage() {
   const supplier = await requireSupplier();
   const supabase = await createClient();
 
-  const { data: vehicles } = await supabase.from("supplier_vehicles").select("*").eq("supplier_id", supplier.id).order("created_at");
+  const { data: vans } = await supabase.from("supplier_vehicles").select("*").eq("supplier_id", supplier.id).order("created_at");
 
   return (
     <div>
@@ -17,7 +17,7 @@ export default async function SupplierBusinessDetailsPage() {
         <PageHead
           eyebrow="Supplier Portal"
           title="Business Details"
-          text="Your contact info, registration and vehicle fleet."
+          text="Your contact info, registration and vans."
           action={
             <Link href="/supplier/settings" className="flex items-center gap-2 text-sm font-bold text-slate-500">
               <ArrowLeft size={16} />
@@ -27,7 +27,7 @@ export default async function SupplierBusinessDetailsPage() {
         />
       </div>
       <div className="mx-auto max-w-3xl">
-        <BusinessDetailsForm supplier={supplier} vehicles={vehicles ?? []} />
+        <BusinessDetailsForm supplier={supplier} vans={vans ?? []} />
       </div>
     </div>
   );

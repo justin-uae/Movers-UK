@@ -127,7 +127,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         id: `enquiry-${e.id}`,
         at: e.created_at,
         icon: MapPin,
-        title: leg ? `${leg.pickup_address} → ${leg.destination_address}` : "Enquiry — no journey recorded",
+        title: leg ? `${leg.pickup_address} → ${leg.destination_address}` : "Enquiry — no move recorded",
         subtitle: formatDateTime(e.created_at),
         badge: { label: e.status.replaceAll("_", " "), className: ENQUIRY_STATUS_STYLE[e.status] },
       };

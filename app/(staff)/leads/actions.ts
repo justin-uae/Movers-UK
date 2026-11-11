@@ -10,6 +10,7 @@ import { recordAudit } from "@/lib/audit";
 import { sendTemplatedEmail } from "@/lib/emailTemplates";
 import { createAndSendQuote, getAiProfileId, LEAD_FOR_SWEEP_COLUMNS, type LeadForSweep } from "@/lib/aiAutoQuote";
 import { formatDateAndTime } from "@/lib/formatDate";
+import { moveDetailChanges, moveDetailsSummary, parseMoveDetails, pickMoveDetails, type MoveDetails } from "@/lib/moveDetails";
 
 export async function claimLeadAction(leadId: string) {
   const actor = await requireProfile();
@@ -87,7 +88,7 @@ export async function assignLeadAction(leadId: string, targetUserId: string) {
     .update({ assigned_user_id: targetUserId, status: "assigned", claimed_at: new Date().toISOString() })
     .eq("id", leadId)
     .select(
-      "id, source, pickup_text, destination_text, travel_date, pickup_time, passenger_count, vehicle_requested, notes, brands(name)",
+      "id, source, pickup_text, destination_text, travel_date, pickup_time, move_type, property_type, rooms, estimated_boxes, pickup_floor, destination_floor, lift_available, packing_needed, dismantling_needed, assembly_needed, storage_needed, fragile_items, notes, brands(name)",
     )
     .maybeSingle();
 
@@ -120,9 +121,8 @@ export async function assignLeadAction(leadId: string, targetUserId: string) {
       source: lead.source,
       pickup: lead.pickup_text ?? "Not specified",
       destination: lead.destination_text ?? "Not specified",
-      travel_date: lead.travel_date ? formatDateAndTime(lead.travel_date, lead.pickup_time) : "Not specified",
-      passenger_count: lead.passenger_count ? String(lead.passenger_count) : "Not specified",
-      vehicle_requested: lead.vehicle_requested ?? "Not specified",
+      move_date: lead.travel_date ? formatDateAndTime(lead.travel_date, lead.pickup_time) : "Not specified",
+      move_details: moveDetailsSummary(lead) || "Not specified",
       notes: lead.notes ?? "",
       link: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/leads/${leadId}`,
     },
@@ -148,7 +148,7 @@ export async function assignLeadAction(leadId: string, targetUserId: string) {
     } else if (!l.pickup_text || !l.destination_text || !l.customer_id || !l.brand_id) {
       warning = "Lead assigned to AI, but it's missing pickup, destination or customer details, so no quote was created automatically.";
     } else if (l.travel_date && l.travel_date < new Date().toISOString().slice(0, 10)) {
-      warning = "Lead assigned to AI, but its travel date has already passed, so no quote was created automatically.";
+      warning = "Lead assigned to AI, but its move date has already passed, so no quote was created automatically.";
     } else {
       try {
         await createAndSendQuote(admin, l, aiProfileId, { trigger: "manual_assign", alsoSendWhatsApp: true, actorId: actor.id });
@@ -170,33 +170,22 @@ export interface EditLeadInput {
   reason: string;
   pickupText?: string | null;
   destinationText?: string | null;
-  travelDate?: string | null;
+  moveDate?: string | null;
   pickupTime?: string | null;
-  returnTrip?: boolean;
-  returnDate?: string | null;
-  returnTime?: string | null;
-  passengerCount?: number | null;
-  luggageCount?: number | null;
-  vehicleRequested?: string | null;
+  moveDetails?: MoveDetails;
   notes?: string | null;
 }
 
 const EDITABLE_FIELDS: { key: keyof EditLeadInput; column: string }[] = [
   { key: "pickupText", column: "pickup_text" },
   { key: "destinationText", column: "destination_text" },
-  { key: "travelDate", column: "travel_date" },
+  { key: "moveDate", column: "travel_date" },
   { key: "pickupTime", column: "pickup_time" },
-  { key: "returnTrip", column: "return_trip" },
-  { key: "returnDate", column: "return_date" },
-  { key: "returnTime", column: "return_time" },
-  { key: "passengerCount", column: "passenger_count" },
-  { key: "luggageCount", column: "luggage_count" },
-  { key: "vehicleRequested", column: "vehicle_requested" },
   { key: "notes", column: "notes" },
 ];
 
 /**
- * Lets a lead's assigned owner correct its journey/intake details after
+ * Lets a lead's assigned owner correct its move/intake details after
  * capture — required reason, logged append-only to lead_edits (see
  * 0076_lead_edits.sql) so the lead detail page can show a proper history.
  * No customer/supplier notification: a lead is pre-quote and internal-only,
@@ -225,6 +214,14 @@ export async function editLeadAction(leadId: string, input: EditLeadInput) {
     if (newValue === oldValue) continue;
     update[column] = newValue;
     changes[column] = { from: oldValue, to: newValue };
+  }
+  if (input.moveDetails) {
+    const next = parseMoveDetails(input.moveDetails);
+    const moveChanges = moveDetailChanges(pickMoveDetails(lead), next);
+    for (const [column, change] of Object.entries(moveChanges)) {
+      update[column] = change.to;
+      changes[column] = change;
+    }
   }
 
   if (Object.keys(update).length === 0) {
@@ -264,10 +261,8 @@ export interface EditLeadLegInput {
   destinationAddress?: string;
   pickupDate?: string | null;
   pickupTime?: string | null;
-  returnDate?: string | null;
-  returnTime?: string | null;
-  passengerCount?: number | null;
-  luggageCount?: number | null;
+  moveDetails?: MoveDetails;
+  vanSize?: string | null;
   specialRequirements?: string | null;
 }
 
@@ -276,26 +271,21 @@ const EDITABLE_LEG_FIELDS: { key: keyof EditLeadLegInput; column: string }[] = [
   { key: "destinationAddress", column: "destination_address" },
   { key: "pickupDate", column: "pickup_date" },
   { key: "pickupTime", column: "pickup_time" },
-  { key: "returnDate", column: "return_date" },
-  { key: "returnTime", column: "return_time" },
-  { key: "passengerCount", column: "passenger_count" },
-  { key: "luggageCount", column: "luggage_count" },
+  { key: "vanSize", column: "van_size" },
   { key: "specialRequirements", column: "special_requirements" },
 ];
 
 /**
- * Same idea as editLeadAction, but for one leg of a multi-leg (complex
- * booking) itinerary — editLeadAction only ever touched the leads table's
- * own single pickup/destination/date snapshot (in practice just leg 1's
- * values at creation time), leaving every other enquiry_legs row, and even
- * leg 1's *real* row, with no edit path at all. This updates the actual
- * enquiry_legs row instead — the one the quote is built from — and logs to
- * the same lead_edits history, prefixed with which leg changed.
+ * Same idea as editLeadAction, but for the move as it stands on the
+ * enquiry (enquiry_legs) — editLeadAction only ever touches the leads
+ * table's own intake snapshot, while the quote is built from the enquiry's
+ * move. This updates that enquiry_legs row instead and logs to the same
+ * lead_edits history.
  */
 export async function editLeadLegAction(legId: string, input: EditLeadLegInput) {
   const actor = await requireProfile();
   const reason = input.reason.trim();
-  if (!reason) return { error: "A reason is required to edit a journey leg." };
+  if (!reason) return { error: "A reason is required to edit the move." };
 
   const supabase = await createClient();
 
@@ -304,7 +294,7 @@ export async function editLeadLegAction(legId: string, input: EditLeadLegInput) 
     .select("*, enquiries(id, lead_id, assigned_user_id, tenant_id)")
     .eq("id", legId)
     .single();
-  if (!leg) return { error: "Journey leg not found." };
+  if (!leg) return { error: "Move not found." };
 
   const enquiry = leg.enquiries as unknown as {
     id: string;
@@ -312,12 +302,12 @@ export async function editLeadLegAction(legId: string, input: EditLeadLegInput) 
     assigned_user_id: string | null;
     tenant_id: string;
   } | null;
-  if (!enquiry) return { error: "Journey leg not found." };
+  if (!enquiry) return { error: "Move not found." };
   if (enquiry.assigned_user_id !== actor.id) {
-    return { error: "Only this lead's assigned owner can edit its journey legs." };
+    return { error: "Only this lead's assigned owner can edit its move." };
   }
   if (!enquiry.lead_id) {
-    return { error: "This journey leg is no longer linked to a lead." };
+    return { error: "This move is no longer linked to a lead." };
   }
 
   const update: Record<string, unknown> = {};
@@ -328,7 +318,14 @@ export async function editLeadLegAction(legId: string, input: EditLeadLegInput) 
     const oldValue = (leg as Record<string, unknown>)[column];
     if (newValue === oldValue) continue;
     update[column] = newValue;
-    changes[`leg_${leg.sequence}_${column}`] = { from: oldValue, to: newValue };
+    changes[`move_${column}`] = { from: oldValue, to: newValue };
+  }
+  if (input.moveDetails) {
+    const moveChanges = moveDetailChanges(pickMoveDetails(leg), parseMoveDetails(input.moveDetails));
+    for (const [column, change] of Object.entries(moveChanges)) {
+      update[column] = change.to;
+      changes[`move_${column}`] = change;
+    }
   }
 
   if (Object.keys(update).length === 0) {
@@ -364,7 +361,7 @@ export async function editLeadLegAction(legId: string, input: EditLeadLegInput) 
 
 /**
  * Fast path from an already-assigned lead straight into the quote builder —
- * creates the enquiry + first journey leg pre-filled from the lead's
+ * creates the enquiry + its move pre-filled from the lead's
  * captured details (customer is already resolved on the lead by the
  * website webhook) and redirects into /quotes/new. The manual 4-step
  * enquiry wizard at /leads/new stays for phone/walk-in enquiries with no
@@ -423,9 +420,9 @@ export async function createEnquiryFromLeadAction(leadId: string) {
     return { error: enquiryError?.message ?? "Could not create the enquiry." };
   }
 
-  // Website-submitted pickup/return time is free text (sites send whatever
-  // their <input type="time"> gives them, usually "HH:MM" but not
-  // guaranteed) — enquiry_legs.pickup_time/return_time are a real Postgres
+  // Website-submitted start time is free text (sites send whatever their
+  // <input type="time"> gives them, usually "HH:MM" but not
+  // guaranteed) — enquiry_legs.pickup_time is a real Postgres
   // `time`, so only carry a value across when it actually parses as one;
   // anything else stays visible on the lead itself rather than breaking
   // quote creation.
@@ -434,19 +431,12 @@ export async function createEnquiryFromLeadAction(leadId: string) {
   const { error: legError } = await supabase.from("enquiry_legs").insert({
     enquiry_id: enquiry.id,
     sequence: 1,
-    journey_type: lead.return_trip ? "return" : "one_way",
     pickup_address: lead.pickup_text ?? "Unknown",
     destination_address: lead.destination_text ?? "Unknown",
     pickup_date: lead.travel_date,
     pickup_time: asPgTime(lead.pickup_time),
-    return_date: lead.return_trip ? lead.return_date : null,
-    return_time: lead.return_trip ? asPgTime(lead.return_time) : null,
-    passenger_count: lead.passenger_count,
-    luggage_count: lead.luggage_count,
-    special_requirements:
-      [lead.vehicle_requested ? `Vehicle requested: ${lead.vehicle_requested}` : null, lead.notes]
-        .filter(Boolean)
-        .join(" — ") || null,
+    ...pickMoveDetails(lead),
+    special_requirements: lead.notes,
   });
 
   if (legError) {

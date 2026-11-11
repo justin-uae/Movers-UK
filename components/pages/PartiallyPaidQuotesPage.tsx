@@ -9,7 +9,7 @@ import { PageHead } from "@/components/ui/PageHead";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { SortSelect } from "@/components/ui/SortSelect";
 import { Pagination } from "@/components/ui/Pagination";
-import { JourneyCell } from "@/components/ui/JourneyCell";
+import { RouteCell } from "@/components/ui/RouteCell";
 import { SendEmailButton } from "@/components/ui/SendEmailButton";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ConfirmDetailModal } from "@/components/ui/ConfirmDetailModal";
@@ -52,7 +52,7 @@ function money(amount: number | undefined, currency: string) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
 }
 
-function journeyOf(q: PartiallyPaidQuoteRow) {
+function moveOf(q: PartiallyPaidQuoteRow) {
   return q.enquiries?.enquiry_legs?.[0] ?? null;
 }
 
@@ -159,7 +159,7 @@ export function PartiallyPaidQuotesPage({
               </div>
               <div className="mt-2 text-sm font-semibold">{q.customers?.company_name || q.customers?.contact_name || "—"}</div>
               <div className="mt-1 text-sm text-slate-600">
-                <JourneyCell pickup={journeyOf(q)?.pickup_address} destination={journeyOf(q)?.destination_address} maxWidth="100%" />
+                <RouteCell pickup={moveOf(q)?.pickup_address} destination={moveOf(q)?.destination_address} maxWidth="100%" />
               </div>
               <div className="mt-2 flex justify-between text-sm">
                 <span className="text-slate-500">Paid</span>
@@ -199,7 +199,7 @@ export function PartiallyPaidQuotesPage({
               <tr className="border-b text-slate-500">
                 <th className="px-3 py-4">Quote</th>
                 <th className="px-3 py-4">Customer</th>
-                <th className="px-3 py-4">Journey</th>
+                <th className="px-3 py-4">Move</th>
                 <th className="px-3 py-4">Sales Rep</th>
                 <th className="px-3 py-4">Source</th>
                 <th className="px-3 py-4">Paid</th>
@@ -220,7 +220,7 @@ export function PartiallyPaidQuotesPage({
                     {q.customers?.company_name || q.customers?.contact_name || "—"}
                   </td>
                   <td className="px-3 py-4 text-slate-600">
-                    <JourneyCell pickup={journeyOf(q)?.pickup_address} destination={journeyOf(q)?.destination_address} />
+                    <RouteCell pickup={moveOf(q)?.pickup_address} destination={moveOf(q)?.destination_address} />
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-slate-600">{assignedNameFor(q) || q.profiles?.full_name || "—"}</td>
                   <td className="whitespace-nowrap px-3 py-4 text-slate-600">{sourceLabel(q)}</td>

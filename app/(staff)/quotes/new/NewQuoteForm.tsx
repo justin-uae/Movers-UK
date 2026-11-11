@@ -9,8 +9,9 @@ import { ConfirmDetailModal } from "@/components/ui/ConfirmDetailModal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { RichText } from "@/components/ui/RichText";
 import { RichTextToolbar } from "@/components/ui/RichTextToolbar";
-import { JourneyLegDetail, type JourneyLeg } from "@/components/pages/JourneyLegDetail";
-import type { RouteDistance } from "@/lib/tripDistance";
+import { MoveDetailCard, type MoveLeg } from "@/components/pages/MoveDetailCard";
+import { VanSizeSelect } from "@/components/ui/MoveDetailsEditor";
+import type { RouteDistance } from "@/lib/moveDistance";
 import { CURRENCIES } from "@/lib/currencies";
 import { STRIPE_PRICE_THRESHOLD, paymentMethodsForGbpValue } from "@/lib/quoteMoney";
 import { grossFromNet } from "@/lib/vat";
@@ -91,8 +92,8 @@ export function NewQuoteForm({
 }: {
   enquiryId: string;
   customer: CustomerInfo;
-  legs: JourneyLeg[];
-  /** Stop-by-stop route distance per leg, index-aligned with `legs`. */
+  legs: MoveLeg[];
+  /** Driving distance per move, index-aligned with `legs`. */
   legDistances: RouteDistance[];
   defaultCurrency: string;
   canSend: boolean;
@@ -118,6 +119,7 @@ export function NewQuoteForm({
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
   const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
   const [customerNotes, setCustomerNotes] = useState("");
+  const [vanSize, setVanSize] = useState<string | null>(legs[0]?.van_size ?? null);
   const customerNotesRef = useRef<HTMLTextAreaElement>(null);
   const [forceBankTransfer, setForceBankTransfer] = useState(false);
   const [sendNow, setSendNow] = useState(true);
@@ -243,13 +245,12 @@ export function NewQuoteForm({
       </div>
 
       <div>
-        <div className="mb-2 text-xs font-black uppercase tracking-wide text-primary-500">
-          Journey{legs.length > 1 ? ` (${legs.length} legs)` : ""}
-        </div>
-        {legs.map((leg, i) => (
-          <JourneyLegDetail key={leg.sequence} leg={leg} index={i} total={legs.length} distance={legDistances[i]} />
-        ))}
-        {legs.length === 0 && <p className="text-sm text-slate-500">No journey details recorded.</p>}
+        <div className="mb-2 text-xs font-black uppercase tracking-wide text-primary-500">Move</div>
+        {legs[0] ? (
+          <MoveDetailCard leg={{ ...legs[0], van_size: vanSize }} distance={legDistances[0]} />
+        ) : (
+          <p className="text-sm text-slate-500">No move details recorded.</p>
+        )}
       </div>
 
       <div>
@@ -345,6 +346,7 @@ export function NewQuoteForm({
   return (
     <form ref={formRef} onSubmit={(e) => e.preventDefault()}>
       <input type="hidden" name="enquiryId" value={enquiryId} />
+      <input type="hidden" name="vanSize" value={vanSize ?? ""} />
       <input type="hidden" name="confirmedLowSupplierCost" value={lowSupplierCostWarning ? "true" : "false"} />
       <input type="hidden" name="depositPercentage" value={depositMode === "percentage" ? depositPercentage : ""} />
       <input type="hidden" name="depositFixedAmount" value={depositMode === "fixed" ? depositFixedAmount : ""} />
@@ -394,19 +396,24 @@ export function NewQuoteForm({
       <div className="mt-5">
         <Panel>
           <div className={clsx(step !== 1 && "hidden")}>
-            <SectionTitle title="Enquiry Summary" sub="Customer and journey details captured on this enquiry" />
+            <SectionTitle title="Enquiry Summary" sub="Customer and move details captured on this enquiry" />
             <div className="mt-5 space-y-5">
               <CustomerSummary customer={customer} />
-              {legs.map((leg, i) => (
-                <JourneyLegDetail key={leg.sequence} leg={leg} index={i} total={legs.length} distance={legDistances[i]} />
-              ))}
-              {legs.length === 0 && <p className="text-sm text-slate-500">No journey details recorded.</p>}
+              {legs[0] ? (
+                <MoveDetailCard leg={legs[0]} distance={legDistances[0]} />
+              ) : (
+                <p className="text-sm text-slate-500">No move details recorded.</p>
+              )}
             </div>
           </div>
 
           <div className={clsx(step !== 2 && "hidden")}>
             <SectionTitle title="Pricing" sub="Enter supplier cost and the customer selling price" />
             <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <label className="text-sm font-bold md:col-span-2">
+                Van size
+                <VanSizeSelect value={vanSize} onChange={setVanSize} />
+              </label>
               <label className="text-sm font-bold">
                 Currency
                 <SearchableSelect

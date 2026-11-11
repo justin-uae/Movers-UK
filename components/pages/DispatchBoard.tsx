@@ -19,7 +19,7 @@ import type { JobStatus } from "@/lib/supabase/database.types";
 import type { AssignableUser } from "@/components/pages/LeadDetailPage";
 
 // completed/cancelled are the two dead-end states — a job still sitting in
-// any other status past its own travel date needs a human's attention
+// any other status past its own move date needs a human's attention
 // (never got run, or never got closed out), so those are the only two
 // statuses excluded from the "overdue" flag.
 const TERMINAL_JOB_STATUSES: JobStatus[] = ["completed", "cancelled"];
@@ -136,7 +136,7 @@ function JobCard({
 
       <p className="mt-2 text-xs text-slate-500">{allocationSummary(job)}</p>
       <p className="mt-1 text-xs text-slate-500">
-        Travel date: {job.quotes?.enquiries?.enquiry_legs?.[0]?.pickup_date ? formatDate(job.quotes.enquiries.enquiry_legs[0].pickup_date!) : "—"}
+        Move date: {job.quotes?.enquiries?.enquiry_legs?.[0]?.pickup_date ? formatDate(job.quotes.enquiries.enquiry_legs[0].pickup_date!) : "—"}
       </p>
     </div>
   );
@@ -209,7 +209,7 @@ export function DispatchBoard({
       <PageHead
         eyebrow="Operations"
         title="Dispatch"
-        text="Assign paid bookings to one or more approved suppliers — split multi-leg bookings across suppliers as needed. Open a job to allocate legs and offer them."
+        text="Assign paid bookings to one or more approved suppliers — offer each move to the right supplier. Open a job to allocate the move and offer it."
         action={
           <PageGuide
             title="Dispatch"
@@ -223,9 +223,9 @@ export function DispatchBoard({
                 ],
               },
               {
-                heading: "Splitting a job",
+                heading: "Allocating a job",
                 body: [
-                  "A booking with multiple legs (e.g. airport pickup plus a separate return) doesn't have to go to one supplier — open the job to allocate each leg and offer them to different suppliers if that gets a better price or availability.",
+                  "Open the job, select the move and create an allocation — then offer it to one or more suppliers. The first supplier to accept gets the job.",
                 ],
               },
               {
@@ -248,8 +248,8 @@ export function DispatchBoard({
               {
                 heading: "Editing a job after it's dispatched",
                 body: [
-                  "Open a job and use Edit Booking (in the Journey panel) to change pickup, destination, date, time, passengers or luggage — even once a supplier has accepted or confirmed. A reason is required, you can charge/credit the customer and/or adjust the supplier's payout at the same time, and it's logged to the Edit history panel on the same page. It closes off only once the job is marked Completed.",
-                  "If the supplier had already accepted or confirmed, editing the journey or their payout pulls the allocation back to Awaiting supplier re-approval — they have to explicitly approve or reject the change on their own dashboard before anything proceeds. Approve and it carries on exactly as before; reject and the job comes straight back here as Rejected by supplier, ready to re-offer to someone else — nothing else on your end changes.",
+                  "Open a job and use Edit Booking (in the Move panel) to change the addresses, date, time, move details or van size — even once a supplier has accepted or confirmed. A reason is required, you can charge/credit the customer and/or adjust the supplier's payout at the same time, and it's logged to the Edit history panel on the same page. It closes off only once the job is marked Completed.",
+                  "If the supplier had already accepted or confirmed, editing the move or their payout pulls the allocation back to Awaiting supplier re-approval — they have to explicitly approve or reject the change on their own dashboard before anything proceeds. Approve and it carries on exactly as before; reject and the job comes straight back here as Rejected by supplier, ready to re-offer to someone else — nothing else on your end changes.",
                 ],
               },
             ]}

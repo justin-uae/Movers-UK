@@ -37,7 +37,7 @@ export default async function AiAutoQuotePage() {
                   "The clock starts when a lead is created — but if it's ever claimed or assigned to a sales user, the clock restarts from that moment instead, giving them a full fresh time-limit window before AI would ever take it. An unclaimed lead sitting in the open pool keeps counting from when it came in.",
                   "Only Monday-Saturday counts — Sunday never adds to the total, so a lead created Saturday evening with a 24-hour time limit breaches Monday evening, not on the Sunday in between.",
                   "Turning this on never treats existing leads as instantly overdue — every lead's countdown is floored at the moment you switch it on, so the first sweep only ever catches ones that are still unquoted after a fresh time limit window from now.",
-                  "A lead that's already been quoted, closed, marked spam/duplicate, or whose travel date has already passed is never picked up.",
+                  "A lead that's already been quoted, closed, marked spam/duplicate, or whose move date has already passed is never picked up.",
                 ],
               },
               {
@@ -45,7 +45,7 @@ export default async function AiAutoQuotePage() {
                 bullets: true,
                 body: [
                   "If the lead is currently assigned to a sales user, it's released back to the open pool first — visible on the lead's Assignment history.",
-                  `${BRAND.aiAssistantName} estimates a market-rate selling price and supplier cost for the trip, and a real quote is created and emailed to the customer automatically — same email, PDF and quote lifecycle as a human-sent quote.`,
+                  `${BRAND.aiAssistantName} estimates a market-rate selling price and supplier cost for the move, and a real quote is created and emailed to the customer automatically — same email, PDF and quote lifecycle as a human-sent quote.`,
                   "Every AI-priced quote shows up in Sales -> Pending Quotes (or wherever it's since moved on to, e.g. a Bookings tab) alongside everything else, marked with a small \"AI\" badge next to its status so it's easy to tell what went out automatically.",
                 ],
               },
@@ -54,7 +54,7 @@ export default async function AiAutoQuotePage() {
                 bullets: true,
                 body: [
                   "Separate switches, below, for WhatsApp, website, email and manually added leads — when one is on, a new lead from that source is priced and quoted by AI immediately, over email AND WhatsApp, instead of waiting for the time limit above. Exactly the same pricing and sending as a WhatsApp lead, whichever source it came from.",
-                  "Skipped (left for a salesperson, like before) if the lead has no pickup, destination or customer, is a duplicate, or its travel date has already passed.",
+                  "Skipped (left for a salesperson, like before) if the lead has no pickup, destination or customer, is a duplicate, or its move date has already passed.",
                   "A manually added lead that AI quotes takes the person who added it straight to the lead, with its quote, instead of the quote builder — so it never ends up with two quotes.",
                   "All off by default. When off, a lead from that source behaves exactly as before — it waits for a sales user (or, eventually, the time limit above).",
                 ],
@@ -64,7 +64,7 @@ export default async function AiAutoQuotePage() {
                 bullets: true,
                 body: [
                   "Always on, not a switch — whenever a Master Admin or Sales Manager explicitly assigns any lead to the AI role's profile from Leads, that's treated the same as a breach: a quote is priced and sent immediately (email and, if the customer has a WhatsApp number on file, WhatsApp too) rather than waiting for the time limit.",
-                  "Skipped silently (the assignment itself still goes through) if the lead is missing a pickup, destination or customer, or its travel date has already passed — exactly the same guardrails as the time-limit sweep.",
+                  "Skipped silently (the assignment itself still goes through) if the lead is missing a pickup, destination or customer, or its move date has already passed — exactly the same guardrails as the time-limit sweep.",
                 ],
               },
               {

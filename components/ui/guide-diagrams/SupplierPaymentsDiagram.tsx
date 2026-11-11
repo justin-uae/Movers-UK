@@ -48,7 +48,7 @@ export function SupplierPaymentsDiagram() {
 
       <Card y={154} h={136}>
         <Text x={0} y={8} size={9.5} weight={800}>
-          City Transfers LLC
+          City Removals LLC
         </Text>
         <Text x={0} y={21} size={8} fill={MUTED}>
           Q-2026-0114 · Al Fardan Logistics

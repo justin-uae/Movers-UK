@@ -49,7 +49,7 @@ export function LeadsDiagram() {
         Customer
       </Text>
       <Text x={220} y={204} size={7.5} fill={MUTED} weight={700} uppercase>
-        Journey
+        Move
       </Text>
       <Text x={360} y={204} size={7.5} fill={MUTED} weight={700} uppercase>
         Source
@@ -105,7 +105,7 @@ export function LeadsDiagram() {
       </Text>
       <LabelPill x={660} y={268} h={24} anchor="end" fill="#ffffff" stroke={PRIMARY_SOFT} textFill="#c2410c" label="View" size={8.5} padX={12} />
 
-      {/* Row 3 — general enquiry, no journey */}
+      {/* Row 3 — general enquiry, no move */}
       <rect x={20} y={ROW_TOP[2]} width={640} height={1} fill={LINE} />
       <Text x={20} y={330} size={9} weight={800} fill="#475569">
         Unassigned enquiry

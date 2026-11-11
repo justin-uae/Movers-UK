@@ -8,27 +8,21 @@ import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 import { recordAudit } from "@/lib/audit";
 import { extractComplexBooking, type ComplexBookingExtraction } from "@/lib/complexBookingExtraction";
 import { getAiModelSetting } from "@/lib/aiProviders";
-import type { ComplexBookingLegInput } from "@/app/(staff)/leads/complex-booking/actions";
+import type { ComplexBookingMoveInput } from "@/app/(staff)/leads/complex-booking/actions";
+import { moveDetailsSummary, parseMoveDetails, type MoveDetails } from "@/lib/moveDetails";
 
 /**
- * Turns everything already captured on a lead (journey details, notes,
+ * Turns everything already captured on a lead (move details, notes,
  * customer info) into the same loose free-text shape the complex-booking
- * extraction expects from a pasted email — so one lead with several trips
- * mentioned in its notes, or just messy/under-structured intake, can be run
- * through the exact same AI leg-extraction the paste/upload flow uses,
- * instead of writing a second, parallel extraction prompt.
+ * extraction expects from a pasted email — so messy/under-structured intake
+ * can be run through the exact same AI extraction the paste/upload flow
+ * uses, instead of writing a second, parallel extraction prompt.
  */
-function buildLeadSummaryText(lead: {
+function buildLeadSummaryText(lead: MoveDetails & {
   pickup_text: string | null;
   destination_text: string | null;
   travel_date: string | null;
   pickup_time: string | null;
-  return_trip: boolean;
-  return_date: string | null;
-  return_time: string | null;
-  passenger_count: number | null;
-  luggage_count: number | null;
-  vehicle_requested: string | null;
   notes: string | null;
   customers: { company_name: string | null; contact_name: string; email: string | null; phone: string | null } | null;
 }): string {
@@ -40,21 +34,17 @@ function buildLeadSummaryText(lead: {
     if (c.email) lines.push(`Email: ${c.email}`);
     if (c.phone) lines.push(`Phone: ${c.phone}`);
   }
-  if (lead.pickup_text) lines.push(`Pickup: ${lead.pickup_text}`);
-  if (lead.destination_text) lines.push(`Destination: ${lead.destination_text}`);
-  if (lead.travel_date) lines.push(`Travel date: ${lead.travel_date}${lead.pickup_time ? ` at ${lead.pickup_time}` : ""}`);
-  if (lead.return_trip) {
-    lines.push(`Return trip: yes${lead.return_date ? ` — ${lead.return_date}${lead.return_time ? ` at ${lead.return_time}` : ""}` : ""}`);
-  }
-  if (lead.passenger_count != null) lines.push(`Passengers: ${lead.passenger_count}`);
-  if (lead.luggage_count != null) lines.push(`Luggage: ${lead.luggage_count}`);
-  if (lead.vehicle_requested) lines.push(`Vehicle requested: ${lead.vehicle_requested}`);
+  if (lead.pickup_text) lines.push(`Moving from: ${lead.pickup_text}`);
+  if (lead.destination_text) lines.push(`Moving to: ${lead.destination_text}`);
+  if (lead.travel_date) lines.push(`Move date: ${lead.travel_date}${lead.pickup_time ? ` at ${lead.pickup_time}` : ""}`);
+  const details = moveDetailsSummary(lead);
+  if (details) lines.push(details);
   if (lead.notes) lines.push(`Notes: ${lead.notes}`);
   return lines.join("\n");
 }
 
 const LEAD_SELECT =
-  "id, tenant_id, brand_id, assigned_user_id, customer_id, pickup_text, destination_text, travel_date, pickup_time, return_trip, return_date, return_time, passenger_count, luggage_count, vehicle_requested, notes, raw_payload, customers(company_name, contact_name, email, phone)";
+  "id, tenant_id, brand_id, assigned_user_id, customer_id, pickup_text, destination_text, travel_date, pickup_time, move_type, property_type, rooms, estimated_boxes, pickup_floor, destination_floor, lift_available, packing_needed, dismantling_needed, assembly_needed, storage_needed, fragile_items, notes, raw_payload, customers(company_name, contact_name, email, phone)";
 
 async function loadOwnedLead(leadId: string, actorId: string) {
   const supabase = await createClient();
@@ -64,14 +54,14 @@ async function loadOwnedLead(leadId: string, actorId: string) {
 }
 
 /**
- * A lead commonly gets a quick single-leg enquiry via "Create Quote" before
- * anyone realises it's actually a multi-day/multi-leg booking — blocking
- * conversion just because *an* enquiry exists would make this feature
- * useless for exactly the case it's for. The only thing that actually can't
- * be undone is a quote: once one's been sent, the legs it was built from are
- * a commitment, not a draft. So conversion stays available right up until
- * that point, reusing the existing (quote-less) enquiry and replacing its
- * legs rather than creating a second enquiry on the same lead.
+ * A lead commonly gets a quick enquiry via "Create Quote" before anyone
+ * realises its details need a proper AI read — blocking conversion just
+ * because *an* enquiry exists would make this feature useless for exactly
+ * the case it's for. The only thing that actually can't be undone is a
+ * quote: once one's been sent, the move it was built from is a commitment,
+ * not a draft. So conversion stays available right up until that point,
+ * reusing the existing (quote-less) enquiry and replacing its move rather
+ * than creating a second enquiry on the same lead.
  */
 async function getLeadEnquiryState(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -112,7 +102,10 @@ export async function extractComplexBookingFromLeadAction(
   try {
     const aiModel = await getAiModelSetting(supabase, actor.tenant_id, "complex_booking");
     const data = await extractComplexBooking({ pastedText: summary, file: null, aiModel });
-    const warning = data.legs.length === 0 ? "Couldn't turn this lead's details into a journey leg — add one manually below." : null;
+    const warning =
+      !data.move.pickup_address.trim() || !data.move.destination_address.trim()
+        ? "Couldn't find both addresses in this lead's details — fill them in below."
+        : null;
     return { data, warning, error: null };
   } catch (err) {
     return { data: null, warning: null, error: err instanceof Error ? err.message : "Could not process this lead." };
@@ -121,7 +114,7 @@ export async function extractComplexBookingFromLeadAction(
 
 export async function convertLeadToComplexBookingAction(
   leadId: string,
-  input: { legs: ComplexBookingLegInput[]; internalNotes: string | null },
+  input: { move: ComplexBookingMoveInput; internalNotes: string | null },
 ): Promise<{ error: string | null }> {
   const actor = await requireProfile();
   const allowed = await hasPermission(actor, PERMISSIONS.ENQUIRIES_ADD);
@@ -131,12 +124,11 @@ export async function convertLeadToComplexBookingAction(
   if (!lead) return { error: "This lead is not assigned to you." };
   if (!lead.customer_id) return { error: "This lead has no linked customer yet." };
 
-  if (input.legs.length === 0) return { error: "Add at least one journey leg." };
-  for (const leg of input.legs) {
-    if (!leg.pickupAddress.trim() || !leg.destinationAddress.trim()) {
-      return { error: "Every leg needs a pickup and destination address." };
-    }
+  const move = input.move;
+  if (!move.pickupAddress.trim() || !move.destinationAddress.trim()) {
+    return { error: "Enter both the moving-from and moving-to address." };
   }
+  const moveDetails = parseMoveDetails(move.moveDetails);
 
   // Re-checked here, not just when the AI step ran — the review step can sit
   // open for a while, long enough for a quote to have been started from this
@@ -146,17 +138,17 @@ export async function convertLeadToComplexBookingAction(
     return { error: "This lead already has a quote — convert it before quoting starts, not after." };
   }
 
-  const firstLeg = input.legs[0]!;
   const existingPayload = (lead.raw_payload as Record<string, unknown> | null) ?? {};
 
   const { error: leadUpdateError } = await supabase
     .from("leads")
     .update({
       is_complex_booking: true,
-      pickup_text: firstLeg.pickupAddress,
-      destination_text: firstLeg.destinationAddress,
-      travel_date: firstLeg.pickupDate,
-      passenger_count: firstLeg.passengerCount,
+      pickup_text: move.pickupAddress,
+      destination_text: move.destinationAddress,
+      travel_date: move.moveDate,
+      pickup_time: move.moveTime,
+      ...moveDetails,
       notes: input.internalNotes,
       raw_payload: { ...existingPayload, convertedToComplexBooking: true, convertedAt: new Date().toISOString() },
     })
@@ -166,7 +158,7 @@ export async function convertLeadToComplexBookingAction(
   let enquiryId = existingEnquiryId;
   if (enquiryId) {
     // A quote-less enquiry already exists (typically from an earlier
-    // "Create Quote" click) — reuse it and replace its legs rather than
+    // "Create Quote" click) — reuse it and replace its move rather than
     // leaving a second, orphaned enquiry behind.
     const { error: enquiryUpdateError } = await supabase
       .from("enquiries")
@@ -196,25 +188,17 @@ export async function convertLeadToComplexBookingAction(
     enquiryId = enquiry.id;
   }
 
-  const { error: legsError } = await supabase.from("enquiry_legs").insert(
-    input.legs.map((leg, i) => ({
-      enquiry_id: enquiryId,
-      sequence: i + 1,
-      journey_type: leg.journeyType,
-      pickup_address: leg.pickupAddress,
-      destination_address: leg.destinationAddress,
-      pickup_date: leg.pickupDate,
-      pickup_time: leg.pickupTime,
-      return_date: leg.journeyType === "return" ? leg.returnDate : null,
-      return_time: leg.journeyType === "return" ? leg.returnTime : null,
-      passenger_count: leg.passengerCount,
-      luggage_count: leg.luggageCount,
-      vehicle_description: leg.vehicleDescription,
-      wheelchair_required: leg.wheelchairRequired,
-      child_seats: leg.childSeats,
-      special_requirements: leg.specialRequirements,
-    })),
-  );
+  const { error: legsError } = await supabase.from("enquiry_legs").insert({
+    enquiry_id: enquiryId!,
+    sequence: 1,
+    pickup_address: move.pickupAddress,
+    destination_address: move.destinationAddress,
+    pickup_date: move.moveDate,
+    pickup_time: move.moveTime,
+    ...moveDetails,
+    van_size: move.vanSize,
+    special_requirements: move.specialRequirements,
+  });
   if (legsError) return { error: legsError.message };
 
   await recordAudit({
@@ -223,7 +207,7 @@ export async function convertLeadToComplexBookingAction(
     action: "lead_converted_to_complex_booking",
     entityType: "lead",
     entityId: leadId,
-    newValue: { legCount: input.legs.length, enquiryId },
+    newValue: { enquiryId },
   });
 
   // Reuses lead_edits (LeadEditHistory) rather than a new table/panel — it's
@@ -236,7 +220,6 @@ export async function convertLeadToComplexBookingAction(
     reason: "Converted to a complex booking using AI",
     changes: {
       is_complex_booking: { from: false, to: true },
-      journey_legs: { from: 1, to: input.legs.length },
     },
   });
 

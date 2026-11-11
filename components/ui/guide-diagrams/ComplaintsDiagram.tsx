@@ -75,7 +75,7 @@ export function ComplaintsDiagram() {
         Billing
       </Text>
       <Text x={20} y={215} size={8} fill={MUTED}>
-        "Charged twice for the same trip"
+        "Charged twice for the same move"
       </Text>
       <Text x={260} y={206} size={8.5} fill="#475569">
         Continental Freight

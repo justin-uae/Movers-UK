@@ -4,7 +4,7 @@ import { formatDate } from "@/lib/formatDate";
 
 // Render Cron Job hits this on a schedule (render.yaml) — sweeps for four
 // automated task triggers (TSK-02): quote follow-up, payment due, supplier
-// confirmation, and travel prep. Every insert is tagged tasks.source so a
+// confirmation, and move prep. Every insert is tagged tasks.source so a
 // re-run never creates a duplicate for the same record (see hasOpenTask) —
 // a task a staff member has actioned (done/cancelled) is fair game to
 // recreate if the underlying condition is still true, since that reflects a
@@ -13,7 +13,7 @@ import { formatDate } from "@/lib/formatDate";
 const QUOTE_FOLLOWUP_DAYS = 3;
 const PAYMENT_DUE_LEAD_DAYS = 2;
 const SUPPLIER_CONFIRMATION_HOURS = 24;
-const TRAVEL_PREP_LEAD_DAYS = 3;
+const MOVE_PREP_LEAD_DAYS = 3;
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -153,10 +153,10 @@ interface LegRow {
   pickup_date: string | null;
 }
 
-/** Travel prep: pickup is within TRAVEL_PREP_LEAD_DAYS on a still-active job. */
+/** Move prep: pickup is within MOVE_PREP_LEAD_DAYS on a still-active job. */
 async function runTravelPrep(admin: Admin) {
   const today = todayIso();
-  const soon = daysFromNowIso(TRAVEL_PREP_LEAD_DAYS);
+  const soon = daysFromNowIso(MOVE_PREP_LEAD_DAYS);
   const { data: jobs } = await admin
     .from("jobs")
     .select("id, tenant_id, quote_id, created_by, quotes(quote_number, enquiries(enquiry_legs(sequence, pickup_date)))")
@@ -172,7 +172,7 @@ async function runTravelPrep(admin: Admin) {
 
     const { error } = await admin.from("tasks").insert({
       tenant_id: j.tenant_id,
-      title: `Prepare for travel: ${quote?.quote_number ?? "job"}`,
+      title: `Prepare for move: ${quote?.quote_number ?? "job"}`,
       description: `Pickup is scheduled for ${formatDate(pickupDate)} — confirm vehicle, driver and documents are ready.`,
       priority: "medium",
       due_date: today,

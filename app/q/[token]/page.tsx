@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
-import { Bus, Clock } from "lucide-react";
+import { Truck, Clock } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { amountDueNow } from "@/lib/quotePayments";
-import { formatDateTime, formatDate, formatDateAndTime, formatTimeOnly } from "@/lib/formatDate";
-import type { JourneyLeg } from "@/components/pages/JourneyLegDetail";
+import { formatDateTime, formatDate, formatTimeOnly } from "@/lib/formatDate";
+import type { MoveLeg } from "@/components/pages/MoveDetailCard";
+import { moveDetailRows } from "@/lib/moveDetails";
 import { RichText } from "@/components/ui/RichText";
 import { FormattedText } from "@/components/ui/FormattedText";
 import { resolveDisplayCurrency, detectVisitorCurrency, convertForDisplay, displayCurrencyChoices } from "@/lib/localCurrency";
@@ -25,7 +26,7 @@ interface LineItemRow {
 }
 
 interface VersionRow {
-  vehicle_description: string | null;
+  van_size: string | null;
   selling_price: number;
   /** Set when a Special Deal is applied (0114_special_deals.sql) — the struck-through "was" price. */
   original_price: number | null;
@@ -65,7 +66,7 @@ export default async function PublicQuotePage({
   const { data: quote } = await admin
     .from("quotes")
     .select(
-      "id, quote_number, status, currency, expiry_at, brand_id, tenant_id, invoice_number, invoiced_at, payment_method_chosen, customers(company_name, contact_name), enquiries(enquiry_legs(sequence, journey_type, pickup_address, destination_address, via_points, pickup_date, pickup_time, return_date, return_time, passenger_count, luggage_count, wheelchair_required, child_seats, special_requirements, vehicle_types(name))), quote_versions!quotes_current_version_id_fkey(vehicle_description, selling_price, original_price, discount_percent, vat_rate, deposit_percentage, deposit_fixed_amount, payment_methods, customer_notes, terms_snapshot, brand_snapshot, quote_line_items(description, amount, category)), customer_payments(amount), quote_payment_milestones(sequence, label, amount, due_date)",
+      "id, quote_number, status, currency, expiry_at, brand_id, tenant_id, invoice_number, invoiced_at, payment_method_chosen, customers(company_name, contact_name), enquiries(enquiry_legs(sequence, pickup_address, destination_address, pickup_date, pickup_time, van_size, special_requirements, move_type, property_type, rooms, estimated_boxes, pickup_floor, destination_floor, lift_available, packing_needed, dismantling_needed, assembly_needed, storage_needed, fragile_items)), quote_versions!quotes_current_version_id_fkey(van_size, selling_price, original_price, discount_percent, vat_rate, deposit_percentage, deposit_fixed_amount, payment_methods, customer_notes, terms_snapshot, brand_snapshot, quote_line_items(description, amount, category)), customer_payments(amount), quote_payment_milestones(sequence, label, amount, due_date)",
     )
     .eq("public_token", token)
     .single();
@@ -97,9 +98,9 @@ export default async function PublicQuotePage({
   }
 
   const customer = quote.customers as unknown as { company_name: string | null; contact_name: string } | null;
-  const legs = [...((quote.enquiries as unknown as { enquiry_legs: JourneyLeg[] } | null)?.enquiry_legs ?? [])].sort(
+  const move = [...((quote.enquiries as unknown as { enquiry_legs: MoveLeg[] } | null)?.enquiry_legs ?? [])].sort(
     (a, b) => a.sequence - b.sequence,
-  );
+  )[0] ?? null;
   const version = quote.quote_versions as unknown as VersionRow | null;
   const brand = version?.brand_snapshot;
   // Every amount on this page is shown in the customer's local currency
@@ -131,12 +132,12 @@ export default async function PublicQuotePage({
             className="grid h-11 w-11 place-items-center rounded-2xl text-white"
             style={{ backgroundColor: brand?.primary_color ?? "#f97316" }}
           >
-            <Bus size={24} />
+            <Truck size={24} />
           </div>
           <div className="text-base font-black uppercase tracking-wide text-slate-900 sm:text-lg">{brand?.name ?? "Your quote"}</div>
         </div>
 
-        {/* Boarding-pass layout: journey on top, a perforated tear line, then
+        {/* Ticket layout: the move on top, a perforated tear line, then
             the "stub" with the price and the customer's next step. No
             overflow-hidden on the card — the currency dropdown overhangs it. */}
         <article className="relative rounded-[28px] bg-white shadow-[0_1px_2px_rgba(15,23,42,.06),0_12px_32px_rgba(15,23,42,.06)]">
@@ -152,9 +153,7 @@ export default async function PublicQuotePage({
           </header>
 
           <div className="space-y-8 px-6 py-7 sm:px-8">
-            {legs.map((leg, i) => (
-              <LegPass key={i} leg={leg} index={i} total={legs.length} />
-            ))}
+            {move && <MovePass leg={move} vanSize={version?.van_size ?? move.van_size} />}
           </div>
 
           {/* Clipped so only the inner half of each notch shows — a bite out of the card edge. */}
@@ -324,78 +323,59 @@ function splitAddress(address: string) {
   return comma > 0 ? { place: address.slice(0, comma).trim(), rest: address.slice(comma + 1).trim() } : { place: address, rest: "" };
 }
 
-/** One journey leg as the top half of the boarding pass: pickup → destination, then the detail tiles. */
-function LegPass({ leg, index, total }: { leg: JourneyLeg; index: number; total: number }) {
+/** The move as the top half of the ticket: moving from → moving to, then the detail tiles. */
+function MovePass({ leg, vanSize }: { leg: MoveLeg; vanSize: string | null }) {
   const pickup = splitAddress(leg.pickup_address);
   const destination = splitAddress(leg.destination_address);
   const tiles: { label: string; value: string }[] = [];
-  if (leg.pickup_date) tiles.push({ label: "Date", value: formatDate(leg.pickup_date) });
-  if (leg.pickup_time) tiles.push({ label: "Pickup time", value: formatTimeOnly(leg.pickup_time) });
-  tiles.push({ label: "Passengers", value: leg.passenger_count != null ? String(leg.passenger_count) : "—" });
-  if (leg.journey_type === "return" && (leg.return_date || leg.return_time)) {
-    tiles.push({ label: "Return", value: leg.return_date ? formatDateAndTime(leg.return_date, leg.return_time) : formatTimeOnly(leg.return_time!) });
-  }
-  if (leg.vehicle_types?.name) tiles.push({ label: "Vehicle", value: leg.vehicle_types.name });
-  if (leg.luggage_count) tiles.push({ label: "Luggage", value: `${leg.luggage_count} bags` });
-  if (leg.wheelchair_required) tiles.push({ label: "Accessibility", value: "Wheelchair access" });
-  if (leg.child_seats > 0) tiles.push({ label: "Child seats", value: String(leg.child_seats) });
+  if (leg.pickup_date) tiles.push({ label: "Move date", value: formatDate(leg.pickup_date) });
+  if (leg.pickup_time) tiles.push({ label: "Start time", value: formatTimeOnly(leg.pickup_time) });
+  if (vanSize) tiles.push({ label: "Van size", value: vanSize });
+  tiles.push(...moveDetailRows(leg));
 
   return (
-    <section className={index > 0 ? "border-t border-slate-100 pt-8" : ""}>
-      {total > 1 && (
-        <div className="mb-4 text-[11px] font-black uppercase tracking-[.14em] text-primary-600">
-          Journey {index + 1} of {total} · {leg.journey_type.replaceAll("_", " ")}
-        </div>
-      )}
-
-      {/* Phones: a vertical route — pickup dot, dashed line with the bus, destination dot. */}
+    <section>
+      {/* Phones: a vertical route — pickup dot, dashed line with the van, destination dot. */}
       <div className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-3 sm:hidden">
         <div className="flex flex-col items-center pt-1" aria-hidden="true">
           <span className="h-3.5 w-3.5 shrink-0 rounded-full border-[3px] border-emerald-600 bg-white" />
           <span className="my-1 w-0 flex-1 border-l-2 border-dashed border-slate-300" />
-          <Bus size={18} className="shrink-0 text-primary-600" />
+          <Truck size={18} className="shrink-0 text-primary-600" />
           <span className="my-1 w-0 flex-1 border-l-2 border-dashed border-slate-300" />
           <span className="h-3.5 w-3.5 shrink-0 rounded-full bg-slate-900" />
         </div>
         <div className="space-y-6">
           <div className="min-w-0">
-            <div className="text-[11px] font-bold uppercase tracking-[.14em] text-slate-500">Pickup</div>
+            <div className="text-[11px] font-bold uppercase tracking-[.14em] text-slate-500">Moving from</div>
             <div className="mt-1 break-words text-lg font-black leading-snug">{pickup.place}</div>
             {pickup.rest && <div className="mt-0.5 text-sm text-slate-500">{pickup.rest}</div>}
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] font-bold uppercase tracking-[.14em] text-slate-500">Destination</div>
+            <div className="text-[11px] font-bold uppercase tracking-[.14em] text-slate-500">Moving to</div>
             <div className="mt-1 break-words text-lg font-black leading-snug">{destination.place}</div>
             {destination.rest && <div className="mt-0.5 text-sm text-slate-500">{destination.rest}</div>}
           </div>
         </div>
       </div>
 
-      {/* sm and up: pickup and destination side by side, bus line between. */}
+      {/* sm and up: pickup and destination side by side, van line between. */}
       <div className="hidden sm:grid sm:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1fr)] sm:items-start sm:gap-3">
         <div className="min-w-0">
-          <div className="text-[11px] font-bold uppercase tracking-[.14em] text-slate-500">Pickup</div>
+          <div className="text-[11px] font-bold uppercase tracking-[.14em] text-slate-500">Moving from</div>
           <div className="mt-1.5 break-words text-lg font-black leading-snug sm:text-xl">{pickup.place}</div>
           {pickup.rest && <div className="mt-1 text-sm text-slate-500">{pickup.rest}</div>}
         </div>
         <div className="flex items-center gap-1.5 text-primary-600 sm:pt-6" aria-hidden="true">
           <span className="flex-1 border-t-2 border-dashed border-slate-300" />
-          <Bus size={24} className="shrink-0" />
+          <Truck size={24} className="shrink-0" />
           <span className="flex-1 border-t-2 border-dashed border-slate-300" />
         </div>
         <div className="min-w-0 sm:text-right">
-          <div className="text-[11px] font-bold uppercase tracking-[.14em] text-slate-500">Destination</div>
+          <div className="text-[11px] font-bold uppercase tracking-[.14em] text-slate-500">Moving to</div>
           <div className="mt-1.5 break-words text-lg font-black leading-snug sm:text-xl">{destination.place}</div>
           {destination.rest && <div className="mt-1 text-sm text-slate-500">{destination.rest}</div>}
         </div>
       </div>
-
-      {leg.via_points.length > 0 && (
-        <div className="mt-4 text-sm text-slate-600">
-          <span className="font-bold text-slate-500">Via </span>
-          {leg.via_points.join(" → ")}
-        </div>
-      )}
 
       {/* Phones: one list, label left / value right. sm and up: separate tiles. */}
       <dl className="mt-6 divide-y divide-slate-200/70 rounded-2xl bg-slate-50 sm:grid sm:grid-cols-3 sm:gap-3 sm:divide-y-0 sm:bg-transparent">
@@ -409,7 +389,7 @@ function LegPass({ leg, index, total }: { leg: JourneyLeg; index: number; total:
 
       {leg.special_requirements && (
         <div className="mt-5">
-          <div className="text-[11px] font-bold uppercase tracking-[.14em] text-slate-500">Special requirements</div>
+          <div className="text-[11px] font-bold uppercase tracking-[.14em] text-slate-500">Inventory and access notes</div>
           <div className="mt-2 text-sm font-semibold text-slate-700">
             <FormattedText text={leg.special_requirements} />
           </div>

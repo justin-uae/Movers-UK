@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Wand2 } from "lucide-react";
@@ -12,7 +12,8 @@ import { SectionTitle } from "@/components/ui/SectionTitle";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDetailModal } from "@/components/ui/ConfirmDetailModal";
 import { FormattedText } from "@/components/ui/FormattedText";
-import { JourneyLegDetail, type JourneyLeg } from "@/components/pages/JourneyLegDetail";
+import { MoveDetailCard, type MoveLeg } from "@/components/pages/MoveDetailCard";
+import { MoveDetailsEditor, VanSizeSelect } from "@/components/ui/MoveDetailsEditor";
 import { LeadEditHistory, type LeadEditRecord } from "@/components/pages/LeadEditHistory";
 import { LeadAssignmentHistory, type LeadAssignmentEvent } from "@/components/pages/LeadAssignmentHistory";
 import {
@@ -29,10 +30,11 @@ import { updateCustomerAction } from "@/app/(staff)/customers/actions";
 import { formatDate, formatTimeOnly } from "@/lib/formatDate";
 import { SOURCE_LABEL } from "@/lib/leadSource";
 import type { LeadSource, LeadStatus } from "@/lib/supabase/database.types";
-import type { RouteDistance, RouteSegment, TripDistance } from "@/lib/tripDistance";
+import type { MoveDistance } from "@/lib/moveDistance";
 import { SendEmailButton } from "@/components/ui/SendEmailButton";
 import { WhatsAppLink } from "@/components/ui/WhatsAppLink";
 import { formatDuration } from "@/lib/formatDuration";
+import { hasMoveDetails, moveDetailChanges, moveDetailRows, pickMoveDetails, type MoveDetails } from "@/lib/moveDetails";
 
 const STATUS_LABEL: Record<LeadStatus, string> = {
   new: "New",
@@ -73,7 +75,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export interface LeadDetail {
+export interface LeadDetail extends MoveDetails {
   id: string;
   source: LeadSource;
   status: LeadStatus;
@@ -82,13 +84,7 @@ export interface LeadDetail {
   destination_text: string | null;
   travel_date: string | null;
   pickup_time: string | null;
-  return_trip: boolean;
-  return_date: string | null;
-  return_time: string | null;
-  passenger_count: number | null;
-  luggage_count: number | null;
   is_complex_booking: boolean;
-  vehicle_requested: string | null;
   notes: string | null;
   assigned_user_id: string | null;
   created_at: string;
@@ -117,11 +113,8 @@ export interface LeadSourceDocument {
 
 export function LeadDetailPage({
   lead,
-  legs,
-  legDistances,
-  legConnections,
-  tripDistance,
-  isReturnTrip,
+  move,
+  moveDistance,
   enquiryId,
   quote,
   sourceDocument,
@@ -136,14 +129,10 @@ export function LeadDetailPage({
   assignableUsers,
 }: {
   lead: LeadDetail;
-  legs: JourneyLeg[];
-  /** Stop-by-stop route distance per leg, index-aligned with `legs`. */
-  legDistances: RouteDistance[];
-  /** Gap from leg N's end to leg N+1's start (length legs-1); null where they're the same address. */
-  legConnections: (RouteSegment | null)[];
-  /** Driving distance for a simple one-way/return trip; null for complex/multi-leg bookings or when it couldn't be resolved. */
-  tripDistance: TripDistance | null;
-  isReturnTrip: boolean;
+  /** The move on this lead's enquiry, once one exists — what the quote is built from. */
+  move: MoveLeg | null;
+  /** Pickup → destination driving distance (the enquiry's move if there is one, else the intake addresses); null when it couldn't be resolved. */
+  moveDistance: MoveDistance | null;
   enquiryId: string | null;
   quote: LeadDetailQuote | null;
   sourceDocument: LeadSourceDocument | null;
@@ -166,14 +155,9 @@ export function LeadDetailPage({
   const [editError, setEditError] = useState<string | null>(null);
   const [pickupText, setPickupText] = useState(lead.pickup_text ?? "");
   const [destinationText, setDestinationText] = useState(lead.destination_text ?? "");
-  const [travelDate, setTravelDate] = useState(lead.travel_date ?? "");
+  const [moveDate, setMoveDate] = useState(lead.travel_date ?? "");
   const [pickupTime, setPickupTime] = useState(lead.pickup_time ?? "");
-  const [returnTrip, setReturnTrip] = useState(lead.return_trip);
-  const [returnDate, setReturnDate] = useState(lead.return_date ?? "");
-  const [returnTime, setReturnTime] = useState(lead.return_time ?? "");
-  const [passengerCount, setPassengerCount] = useState(lead.passenger_count != null ? String(lead.passenger_count) : "");
-  const [luggageCount, setLuggageCount] = useState(lead.luggage_count != null ? String(lead.luggage_count) : "");
-  const [vehicleRequested, setVehicleRequested] = useState(lead.vehicle_requested ?? "");
+  const [leadMoveDetails, setLeadMoveDetails] = useState<MoveDetails>(pickMoveDetails(lead));
   const [notesInput, setNotesInput] = useState(lead.notes ?? "");
   const [customerContactName, setCustomerContactName] = useState(lead.customers?.contact_name ?? "");
   const [customerCompanyName, setCustomerCompanyName] = useState(lead.customers?.company_name ?? "");
@@ -181,38 +165,16 @@ export function LeadDetailPage({
   const [customerPhone, setCustomerPhone] = useState(lead.customers?.phone ?? "");
   const [assigneeId, setAssigneeId] = useState(lead.assigned_user_id ?? "");
 
-  // Once an enquiry has structured legs, journey editing targets those
-  // enquiry_legs rows directly (the quote is built from them) instead of the
-  // lead's own single pickup/destination snapshot — same "pick which leg"
-  // pattern as EditBookingButton, so a multi-leg booking isn't stuck only
-  // ever editing leg 1.
-  const hasLegs = legs.length > 0;
-  const [selectedLegId, setSelectedLegId] = useState(legs[0]?.id ?? "");
-  const [legPickupAddress, setLegPickupAddress] = useState(legs[0]?.pickup_address ?? "");
-  const [legDestinationAddress, setLegDestinationAddress] = useState(legs[0]?.destination_address ?? "");
-  const [legPickupDate, setLegPickupDate] = useState(legs[0]?.pickup_date ?? "");
-  const [legPickupTime, setLegPickupTime] = useState(legs[0]?.pickup_time ?? "");
-  const [legReturnDate, setLegReturnDate] = useState(legs[0]?.return_date ?? "");
-  const [legReturnTime, setLegReturnTime] = useState(legs[0]?.return_time ?? "");
-  const [legPassengerCount, setLegPassengerCount] = useState(legs[0]?.passenger_count != null ? String(legs[0].passenger_count) : "");
-  const [legLuggageCount, setLegLuggageCount] = useState(legs[0]?.luggage_count != null ? String(legs[0].luggage_count) : "");
-  const [legSpecialRequirements, setLegSpecialRequirements] = useState(legs[0]?.special_requirements ?? "");
-
-  const currentLeg = legs.find((l) => l.id === selectedLegId) ?? null;
-
-  function selectLeg(id: string) {
-    setSelectedLegId(id);
-    const leg = legs.find((l) => l.id === id);
-    setLegPickupAddress(leg?.pickup_address ?? "");
-    setLegDestinationAddress(leg?.destination_address ?? "");
-    setLegPickupDate(leg?.pickup_date ?? "");
-    setLegPickupTime(leg?.pickup_time ?? "");
-    setLegReturnDate(leg?.return_date ?? "");
-    setLegReturnTime(leg?.return_time ?? "");
-    setLegPassengerCount(leg?.passenger_count != null ? String(leg.passenger_count) : "");
-    setLegLuggageCount(leg?.luggage_count != null ? String(leg.luggage_count) : "");
-    setLegSpecialRequirements(leg?.special_requirements ?? "");
-  }
+  // Once an enquiry exists, move editing targets its move (enquiry_legs —
+  // the quote is built from it) instead of the lead's own intake snapshot.
+  const hasMove = move !== null;
+  const [movePickupAddress, setMovePickupAddress] = useState(move?.pickup_address ?? "");
+  const [moveDestinationAddress, setMoveDestinationAddress] = useState(move?.destination_address ?? "");
+  const [movePickupDate, setMovePickupDate] = useState(move?.pickup_date ?? "");
+  const [movePickupTime, setMovePickupTime] = useState(move?.pickup_time ?? "");
+  const [moveVanSize, setMoveVanSize] = useState<string | null>(move?.van_size ?? null);
+  const [moveEditDetails, setMoveEditDetails] = useState<MoveDetails>(move ? pickMoveDetails(move) : pickMoveDetails(lead));
+  const [moveSpecialRequirements, setMoveSpecialRequirements] = useState(move?.special_requirements ?? "");
 
   const isOwnActiveLead = lead.assigned_user_id === currentUserId && lead.status !== "converted" && lead.status !== "closed";
   const showCustomerFields = (canEditCustomer || isOwnActiveLead) && !!lead.customers;
@@ -266,41 +228,27 @@ export function LeadDetailPage({
       return;
     }
 
-    // Once legs exist, journey fields (pickup/destination/date/time/
-    // passengers/luggage) belong to whichever enquiry_legs row is selected,
-    // not the lead itself — only notes stay lead-level either way.
+    // Once the enquiry has its move, move fields belong to that enquiry_legs
+    // row, not the lead itself — only notes stay lead-level either way.
     const input: EditLeadInput = { reason: editReason };
-    if (!hasLegs) {
+    if (!hasMove) {
       if (pickupText !== (lead.pickup_text ?? "")) input.pickupText = pickupText || null;
       if (destinationText !== (lead.destination_text ?? "")) input.destinationText = destinationText || null;
-      if (travelDate !== (lead.travel_date ?? "")) input.travelDate = travelDate || null;
+      if (moveDate !== (lead.travel_date ?? "")) input.moveDate = moveDate || null;
       if (pickupTime !== (lead.pickup_time ?? "")) input.pickupTime = pickupTime || null;
-      if (returnTrip !== lead.return_trip) input.returnTrip = returnTrip;
-      if (returnDate !== (lead.return_date ?? "")) input.returnDate = returnDate || null;
-      if (returnTime !== (lead.return_time ?? "")) input.returnTime = returnTime || null;
-      const passengerNum = passengerCount === "" ? null : Number(passengerCount);
-      if (passengerNum !== lead.passenger_count) input.passengerCount = passengerNum;
-      const luggageNum = luggageCount === "" ? null : Number(luggageCount);
-      if (luggageNum !== lead.luggage_count) input.luggageCount = luggageNum;
-      if (vehicleRequested !== (lead.vehicle_requested ?? "")) input.vehicleRequested = vehicleRequested || null;
+      if (Object.keys(moveDetailChanges(pickMoveDetails(lead), leadMoveDetails)).length > 0) input.moveDetails = leadMoveDetails;
     }
     if (notesInput !== (lead.notes ?? "")) input.notes = notesInput || null;
 
     const legInput: EditLeadLegInput = { reason: editReason };
-    if (hasLegs && currentLeg) {
-      if (legPickupAddress !== currentLeg.pickup_address) legInput.pickupAddress = legPickupAddress;
-      if (legDestinationAddress !== currentLeg.destination_address) legInput.destinationAddress = legDestinationAddress;
-      if (legPickupDate !== (currentLeg.pickup_date ?? "")) legInput.pickupDate = legPickupDate || null;
-      if (legPickupTime !== (currentLeg.pickup_time ?? "")) legInput.pickupTime = legPickupTime || null;
-      if (currentLeg.journey_type === "return") {
-        if (legReturnDate !== (currentLeg.return_date ?? "")) legInput.returnDate = legReturnDate || null;
-        if (legReturnTime !== (currentLeg.return_time ?? "")) legInput.returnTime = legReturnTime || null;
-      }
-      const legPassengerNum = legPassengerCount === "" ? null : Number(legPassengerCount);
-      if (legPassengerNum !== currentLeg.passenger_count) legInput.passengerCount = legPassengerNum;
-      const legLuggageNum = legLuggageCount === "" ? null : Number(legLuggageCount);
-      if (legLuggageNum !== currentLeg.luggage_count) legInput.luggageCount = legLuggageNum;
-      if (legSpecialRequirements !== (currentLeg.special_requirements ?? "")) legInput.specialRequirements = legSpecialRequirements || null;
+    if (hasMove && move) {
+      if (movePickupAddress !== move.pickup_address) legInput.pickupAddress = movePickupAddress;
+      if (moveDestinationAddress !== move.destination_address) legInput.destinationAddress = moveDestinationAddress;
+      if (movePickupDate !== (move.pickup_date ?? "")) legInput.pickupDate = movePickupDate || null;
+      if (movePickupTime !== (move.pickup_time ?? "")) legInput.pickupTime = movePickupTime || null;
+      if (moveVanSize !== move.van_size) legInput.vanSize = moveVanSize;
+      if (Object.keys(moveDetailChanges(pickMoveDetails(move), moveEditDetails)).length > 0) legInput.moveDetails = moveEditDetails;
+      if (moveSpecialRequirements !== (move.special_requirements ?? "")) legInput.specialRequirements = moveSpecialRequirements || null;
     }
 
     const customerInput: { reason: string; contactName?: string; companyName?: string | null; email?: string | null; phone?: string | null } = {
@@ -317,7 +265,7 @@ export function LeadDetailPage({
       if (customerPhone !== (lead.customers?.phone ?? "")) customerInput.phone = customerPhone || null;
     }
     const hasLeadChanges = Object.keys(input).length > 1;
-    const hasLegChanges = hasLegs && !!currentLeg && Object.keys(legInput).length > 1;
+    const hasLegChanges = hasMove && Object.keys(legInput).length > 1;
     const hasCustomerChanges = Object.keys(customerInput).length > 1;
 
     if (!hasLeadChanges && !hasLegChanges && !hasCustomerChanges) {
@@ -335,8 +283,8 @@ export function LeadDetailPage({
           return;
         }
       }
-      if (hasLegChanges && currentLeg) {
-        const result = await editLeadLegAction(currentLeg.id!, legInput);
+      if (hasLegChanges && move) {
+        const result = await editLeadLegAction(move.id!, legInput);
         if (result?.error) {
           setEditError(result.error);
           notify(result.error);
@@ -390,7 +338,7 @@ export function LeadDetailPage({
         <div className="mb-4 rounded-xl border border-red-200 border-l-4 border-l-red-500 bg-red-100/70 px-4 py-3 text-sm text-red-800">
           <div className="font-bold">This lead has expired</div>
           <p className="mt-0.5">
-            No one claimed it from the open pool before its pickup date
+            No one claimed it from the open pool before its move date
             {lead.travel_date ? ` (${formatDate(lead.travel_date)})` : ""} passed, so it was moved to Lost Booking and can no longer be claimed.
           </p>
         </div>
@@ -477,31 +425,33 @@ export function LeadDetailPage({
 
           {!isGeneralEnquiry && (
             <Panel>
-              <SectionTitle title="Journey (as captured on intake)" sub="Raw pickup/destination text before an enquiry was created" />
+              <SectionTitle title="Move (as captured on intake)" sub="Addresses and date before an enquiry was created" />
               <div className="mt-4 text-sm">
-                <Row label="Pickup" value={lead.pickup_text} />
-                <Row label="Destination" value={lead.destination_text} />
-                {tripDistance && (
+                <Row label="Moving from" value={lead.pickup_text} />
+                <Row label="Moving to" value={lead.destination_text} />
+                {moveDistance && (
                   <Row
                     label="Distance"
                     value={
                       <>
-                        {tripDistance.distanceKm} km
-                        <span className="ml-2 font-normal text-slate-500">
-                          ≈{formatDuration(tripDistance.durationMinutes)}
-                          {isReturnTrip && ` each way · ${Math.round(tripDistance.distanceKm * 2 * 10) / 10} km round trip`}
-                        </span>
+                        {moveDistance.distanceKm} km
+                        <span className="ml-2 font-normal text-slate-500">≈{formatDuration(moveDistance.durationMinutes)}</span>
                       </>
                     }
                   />
                 )}
-                <WhenRow label="Travel date" date={lead.travel_date} time={lead.pickup_time} />
-                {lead.return_trip && (
-                  <WhenRow label="Return" date={lead.return_date} time={lead.return_time} />
-                )}
-                <Row label="Passengers" value={lead.passenger_count} />
-                {lead.luggage_count !== null && <Row label="Luggage" value={lead.luggage_count} />}
-                <Row label="Vehicle requested" value={lead.vehicle_requested} />
+                <WhenRow label="Move date" date={lead.travel_date} time={lead.pickup_time} />
+              </div>
+            </Panel>
+          )}
+
+          {hasMoveDetails(lead) && (
+            <Panel>
+              <SectionTitle title="Move details" sub="Property, access and extra services from the website quote form" />
+              <div className="mt-4 text-sm">
+                {moveDetailRows(lead).map(({ label, value }) => (
+                  <Row key={label} label={label} value={value} />
+                ))}
               </div>
             </Panel>
           )}
@@ -542,7 +492,6 @@ export function LeadDetailPage({
                 disabled={pending}
                 onClick={() => {
                   setEditError(null);
-                  if (hasLegs) selectLeg(legs[0]?.id ?? "");
                   setEditOpen(true);
                 }}
                 className="rounded-xl border px-5 py-2.5 text-sm font-bold disabled:opacity-60"
@@ -600,55 +549,12 @@ export function LeadDetailPage({
             )}
           </Panel>
 
-          {legs.length > 0 && (
+          {move && (
             <Panel>
-              <SectionTitle title="Journey legs" sub="Structured legs on the enquiry created from this lead" />
+              <SectionTitle title="Move" sub="The move on the enquiry created from this lead" />
               <div className="mt-4">
-                {legs.map((leg, i) => {
-                  const connection = i > 0 ? legConnections[i - 1] : null;
-                  return (
-                    <Fragment key={leg.id ?? i}>
-                      {connection && (
-                        <div className="mt-4 rounded-xl border border-dashed px-4 py-2 text-sm">
-                          <div className="text-xs font-bold uppercase text-slate-400">
-                            Leg {legs[i - 1]?.sequence} → Leg {leg.sequence}
-                          </div>
-                          <div className="mt-0.5">
-                            <span className="text-slate-500">
-                              {connection.from} → {connection.to}:
-                            </span>{" "}
-                            <b>
-                              {connection.distance
-                                ? `${connection.distance.distanceKm} km · ${formatDuration(connection.distance.durationMinutes)}`
-                                : "—"}
-                            </b>
-                          </div>
-                        </div>
-                      )}
-                      <JourneyLegDetail leg={leg} index={i} total={legs.length} distance={legDistances[i]} />
-                    </Fragment>
-                  );
-                })}
+                <MoveDetailCard leg={move} />
               </div>
-              {legs.length > 1 && legDistances.length === legs.length && legDistances.every((d) => d.total) && (() => {
-                const legsKm = legDistances.reduce((sum, d, i) => sum + d.total!.distanceKm * (legs[i]?.journey_type === "return" ? 2 : 1), 0);
-                const connectionsResolved = legConnections.every((c) => !c || c.distance);
-                const betweenKm = legConnections.reduce((sum, c) => sum + (c?.distance?.distanceKm ?? 0), 0);
-                return (
-                  <div className="mt-4 border-t pt-4 text-sm">
-                    <div className="flex flex-wrap justify-between gap-x-3 gap-y-1">
-                      <span className="text-slate-500">Total distance (all legs, returns counted both ways)</span>
-                      <b>{Math.round(legsKm * 10) / 10} km</b>
-                    </div>
-                    {betweenKm > 0 && connectionsResolved && (
-                      <div className="mt-1 flex flex-wrap justify-between gap-x-3 gap-y-1">
-                        <span className="text-slate-500">Including travel between legs</span>
-                        <b>{Math.round((legsKm + betweenKm) * 10) / 10} km</b>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
             </Panel>
           )}
 
@@ -677,8 +583,8 @@ export function LeadDetailPage({
           title="Edit this lead"
           description={
             showCustomerFields
-              ? "Correct the journey details (pick which leg, for a multi-leg booking) or the linked customer's name/contact info — every change here is logged with the reason below."
-              : "Correct the journey details captured on this lead (pick which leg, for a multi-leg booking) — every change here is logged with the reason below."
+              ? "Correct the move details or the linked customer's name/contact info — every change here is logged with the reason below."
+              : "Correct the move details captured on this lead — every change here is logged with the reason below."
           }
           pending={pending}
           error={editError}
@@ -737,222 +643,100 @@ export function LeadDetailPage({
               </div>
             )}
 
-            {hasLegs ? (
-              <>
-                {legs.length > 1 && (
-                  <div>
-                    <div className="text-xs font-black uppercase tracking-wide text-slate-400">Which leg?</div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {legs.map((l) => (
-                        <button
-                          key={l.id}
-                          type="button"
-                          onClick={() => selectLeg(l.id!)}
-                          className={`rounded-lg border px-3 py-1.5 text-left text-xs font-bold ${
-                            l.id === selectedLegId
-                              ? "border-primary-500 bg-primary-50 text-primary-700"
-                              : "border-slate-200 text-slate-600"
-                          }`}
-                        >
-                          Leg {l.sequence}: {l.pickup_address} → {l.destination_address}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {currentLeg && (
-                  <div>
-                    <div className="text-xs font-black uppercase tracking-wide text-slate-400">
-                      Journey details {legs.length > 1 && `— Leg ${currentLeg.sequence}`}
-                    </div>
-                    <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                      <label className="block text-sm font-bold">
-                        Pickup
-                        <input
-                          value={legPickupAddress}
-                          onChange={(e) => setLegPickupAddress(e.target.value)}
-                          className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                        />
-                      </label>
-                      <label className="block text-sm font-bold">
-                        Destination
-                        <input
-                          value={legDestinationAddress}
-                          onChange={(e) => setLegDestinationAddress(e.target.value)}
-                          className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                        />
-                      </label>
-                      <label className="block text-sm font-bold">
-                        Date
-                        <input
-                          type="date"
-                          value={legPickupDate}
-                          onChange={(e) => setLegPickupDate(e.target.value)}
-                          className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                        />
-                      </label>
-                      <label className="block text-sm font-bold">
-                        Time
-                        <input
-                          type="time"
-                          value={legPickupTime}
-                          onChange={(e) => setLegPickupTime(e.target.value)}
-                          className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                        />
-                      </label>
-                      <label className="block text-sm font-bold">
-                        Passengers
-                        <input
-                          type="number"
-                          min={0}
-                          value={legPassengerCount}
-                          onChange={(e) => setLegPassengerCount(e.target.value)}
-                          className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                        />
-                      </label>
-                      <label className="block text-sm font-bold">
-                        Luggage
-                        <input
-                          type="number"
-                          min={0}
-                          value={legLuggageCount}
-                          onChange={(e) => setLegLuggageCount(e.target.value)}
-                          className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                        />
-                      </label>
-                    </div>
-
-                    {currentLeg.journey_type === "return" && (
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <label className="block text-sm font-bold">
-                          Return date
-                          <input
-                            type="date"
-                            value={legReturnDate}
-                            onChange={(e) => setLegReturnDate(e.target.value)}
-                            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                          />
-                        </label>
-                        <label className="block text-sm font-bold">
-                          Return time
-                          <input
-                            type="time"
-                            value={legReturnTime}
-                            onChange={(e) => setLegReturnTime(e.target.value)}
-                            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                          />
-                        </label>
-                      </div>
-                    )}
-
-                    <label className="mt-3 block text-sm font-bold">
-                      Special requirements
-                      <textarea
-                        value={legSpecialRequirements}
-                        onChange={(e) => setLegSpecialRequirements(e.target.value)}
-                        className="mt-1 min-h-16 w-full rounded-xl border px-3 py-2 font-normal"
-                      />
-                    </label>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block text-sm font-bold">
-                  Pickup
-                  <input
-                    value={pickupText}
-                    onChange={(e) => setPickupText(e.target.value)}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                  />
+            {hasMove ? (
+              <div>
+                <div className="text-xs font-black uppercase tracking-wide text-slate-400">Move details</div>
+                <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                  <label className="block text-sm font-bold">
+                    Moving from
+                    <input
+                      value={movePickupAddress}
+                      onChange={(e) => setMovePickupAddress(e.target.value)}
+                      className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
+                    />
+                  </label>
+                  <label className="block text-sm font-bold">
+                    Moving to
+                    <input
+                      value={moveDestinationAddress}
+                      onChange={(e) => setMoveDestinationAddress(e.target.value)}
+                      className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
+                    />
+                  </label>
+                  <label className="block text-sm font-bold">
+                    Move date
+                    <input
+                      type="date"
+                      value={movePickupDate}
+                      onChange={(e) => setMovePickupDate(e.target.value)}
+                      className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
+                    />
+                  </label>
+                  <label className="block text-sm font-bold">
+                    Start time
+                    <input
+                      type="time"
+                      value={movePickupTime}
+                      onChange={(e) => setMovePickupTime(e.target.value)}
+                      className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
+                    />
+                  </label>
+                </div>
+                <div className="mt-3">
+                  <MoveDetailsEditor value={moveEditDetails} onChange={setMoveEditDetails} />
+                </div>
+                <label className="mt-3 block text-sm font-bold">
+                  Van size
+                  <VanSizeSelect value={moveVanSize} onChange={setMoveVanSize} />
                 </label>
-                <label className="block text-sm font-bold">
-                  Destination
-                  <input
-                    value={destinationText}
-                    onChange={(e) => setDestinationText(e.target.value)}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                  />
-                </label>
-                <label className="block text-sm font-bold">
-                  Travel date
-                  <input
-                    type="date"
-                    value={travelDate}
-                    onChange={(e) => setTravelDate(e.target.value)}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                  />
-                </label>
-                <label className="block text-sm font-bold">
-                  Pickup time
-                  <input
-                    type="time"
-                    value={pickupTime}
-                    onChange={(e) => setPickupTime(e.target.value)}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                  />
-                </label>
-                <label className="block text-sm font-bold">
-                  Passengers
-                  <input
-                    type="number"
-                    min={0}
-                    value={passengerCount}
-                    onChange={(e) => setPassengerCount(e.target.value)}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                  />
-                </label>
-                <label className="block text-sm font-bold">
-                  Luggage
-                  <input
-                    type="number"
-                    min={0}
-                    value={luggageCount}
-                    onChange={(e) => setLuggageCount(e.target.value)}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                  />
-                </label>
-                <label className="block text-sm font-bold sm:col-span-2">
-                  Vehicle requested
-                  <input
-                    value={vehicleRequested}
-                    onChange={(e) => setVehicleRequested(e.target.value)}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
+                <label className="mt-3 block text-sm font-bold">
+                  Inventory and access notes
+                  <textarea
+                    value={moveSpecialRequirements}
+                    onChange={(e) => setMoveSpecialRequirements(e.target.value)}
+                    className="mt-1 min-h-16 w-full rounded-xl border px-3 py-2 font-normal"
                   />
                 </label>
               </div>
-            )}
-
-            {!hasLegs && (
+            ) : (
               <>
-                <label className="flex items-center gap-2 text-sm font-bold">
-                  <input type="checkbox" checked={returnTrip} onChange={(e) => setReturnTrip(e.target.checked)} />
-                  Return trip
-                </label>
-
-                {returnTrip && (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="block text-sm font-bold">
-                      Return date
-                      <input
-                        type="date"
-                        value={returnDate}
-                        onChange={(e) => setReturnDate(e.target.value)}
-                        className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                      />
-                    </label>
-                    <label className="block text-sm font-bold">
-                      Return time
-                      <input
-                        type="time"
-                        value={returnTime}
-                        onChange={(e) => setReturnTime(e.target.value)}
-                        className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
-                      />
-                    </label>
-                  </div>
-                )}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block text-sm font-bold">
+                    Moving from
+                    <input
+                      value={pickupText}
+                      onChange={(e) => setPickupText(e.target.value)}
+                      className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
+                    />
+                  </label>
+                  <label className="block text-sm font-bold">
+                    Moving to
+                    <input
+                      value={destinationText}
+                      onChange={(e) => setDestinationText(e.target.value)}
+                      className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
+                    />
+                  </label>
+                  <label className="block text-sm font-bold">
+                    Move date
+                    <input
+                      type="date"
+                      value={moveDate}
+                      onChange={(e) => setMoveDate(e.target.value)}
+                      className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
+                    />
+                  </label>
+                  <label className="block text-sm font-bold">
+                    Start time
+                    <input
+                      type="time"
+                      value={pickupTime}
+                      onChange={(e) => setPickupTime(e.target.value)}
+                      className="mt-1 w-full rounded-lg border px-3 py-2 text-sm font-normal"
+                    />
+                  </label>
+                </div>
+                {!isGeneralEnquiry && <MoveDetailsEditor value={leadMoveDetails} onChange={setLeadMoveDetails} />}
               </>
             )}
 

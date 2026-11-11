@@ -28,20 +28,18 @@ export async function updateSupplierDetailsAction(_prevState: { error: string | 
   return { error: null };
 }
 
-export async function addVehicleAction(_prevState: { error: string | null }, formData: FormData) {
+export async function addVanAction(_prevState: { error: string | null }, formData: FormData) {
   const supplier = await requireSupplier();
   const supabase = await createClient();
 
-  const vehicleType = String(formData.get("vehicleType") ?? "").trim();
-  if (!vehicleType) return { error: "Vehicle type is required." };
+  const vanSize = String(formData.get("vanSize") ?? "").trim();
+  if (!vanSize) return { error: "Van size is required." };
 
-  const seatCapacity = Number(formData.get("seatCapacity") ?? 0) || null;
   const plateNumber = String(formData.get("plateNumber") ?? "").trim() || null;
 
   const { error } = await supabase.from("supplier_vehicles").insert({
     supplier_id: supplier.id,
-    vehicle_type: vehicleType,
-    seat_capacity: seatCapacity,
+    van_size: vanSize,
     plate_number: plateNumber,
   });
 
@@ -51,11 +49,11 @@ export async function addVehicleAction(_prevState: { error: string | null }, for
   return { error: null };
 }
 
-export async function removeVehicleAction(vehicleId: string) {
+export async function removeVanAction(vanId: string) {
   const supplier = await requireSupplier();
   const supabase = await createClient();
 
-  await supabase.from("supplier_vehicles").delete().eq("id", vehicleId).eq("supplier_id", supplier.id);
+  await supabase.from("supplier_vehicles").delete().eq("id", vanId).eq("supplier_id", supplier.id);
   revalidatePath("/supplier/settings", "layout");
 }
 

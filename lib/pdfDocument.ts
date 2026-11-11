@@ -180,7 +180,7 @@ export function ensureSpace(doc: PDFKit.PDFDocument, height: number) {
   }
 }
 
-/** A light grey box of label/value rows — the workhorse layout for travel + pricing details. */
+/** A light grey box of label/value rows — the workhorse layout for move + pricing details. */
 export function drawKeyValueBox(doc: PDFKit.PDFDocument, rows: [string, string][], width: number) {
   const padding = 10;
   const labelWidth = width * 0.4 - padding;

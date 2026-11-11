@@ -79,13 +79,13 @@ export function CustomerExperiencePage({
   return (
     <div>
       <PageHead
-        eyebrow="Post-Trip"
+        eyebrow="Post-Move"
         title="Customer Experience"
         text="One NPS question per completed job — automatically requested, automatically escalated when the score is low."
         action={
           <PageGuide
             title="Customer Experience"
-            subtitle="Post-trip feedback, scored and automatically escalated when it's bad."
+            subtitle="Post-move feedback, scored and automatically escalated when it's bad."
             screenshot={<CustomerExperienceDiagram />}
             sections={[
               {

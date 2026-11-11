@@ -113,9 +113,9 @@ export default async function QuoteRemindersSettingsPage() {
                 ],
               },
               {
-                heading: "Trips coming up soon",
+                heading: "Moves coming up soon",
                 body: [
-                  "If the trip is too close for the full schedule, every reminder is brought forward proportionally so the sequence still fits before travel. Nothing is sent in the last 12 hours before the trip, or after the quote expires.",
+                  "If the move is too close for the full schedule, every reminder is brought forward proportionally so the sequence still fits before the move. Nothing is sent in the last 12 hours before the move, or after the quote expires.",
                 ],
               },
               {

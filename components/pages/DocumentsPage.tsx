@@ -47,8 +47,8 @@ const DOC_TYPE_LABEL: Record<DocumentType, string> = {
   invoice: "Invoice",
   receipt: "Receipt",
   credit_note: "Credit Note",
-  itinerary: "Itinerary",
-  passenger_list: "Passenger List",
+  move_plan: "Move Plan",
+  inventory_list: "Inventory List",
   quote: "Quote",
   other: "Other",
 };

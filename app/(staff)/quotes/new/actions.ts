@@ -41,7 +41,7 @@ export async function createQuoteAction(
   const { data: enquiry } = await supabase
     .from("enquiries")
     .select(
-      "id, brand_id, customer_id, lead_id, customers(contact_name, company_name, email, phone, whatsapp), enquiry_legs(sequence, vehicle_type_id, vehicle_description, vehicle_types(name))",
+      "id, brand_id, customer_id, lead_id, customers(contact_name, company_name, email, phone, whatsapp), enquiry_legs(sequence, van_size)",
     )
     .eq("id", enquiryId)
     .single();
@@ -187,19 +187,18 @@ export async function createQuoteAction(
     sellingPriceGbp = STRIPE_PRICE_THRESHOLD;
   }
 
-  // Vehicle is chosen once, at lead/enquiry intake — the quote just inherits
-  // whatever the enquiry's first leg already has, rather than asking staff
-  // to pick it again.
-  const legs = (enquiry.enquiry_legs as unknown as { sequence: number; vehicle_type_id: string | null; vehicle_description: string | null; vehicle_types: { name: string } | null }[]) ?? [];
+  // Van size is chosen at lead/enquiry intake (or on the quote form, which
+  // posts it as vanSize) — the quote records it for the PDF and dispatch.
+  const legs = (enquiry.enquiry_legs as unknown as { sequence: number; van_size: string | null }[]) ?? [];
   const firstLeg = [...legs].sort((a, b) => a.sequence - b.sequence)[0];
+  const vanSize = String(formData.get("vanSize") ?? "").trim() || firstLeg?.van_size || null;
 
   const { data: version, error: versionError } = await supabase
     .from("quote_versions")
     .insert({
       quote_id: quote.id,
       version_number: 1,
-      vehicle_type_id: firstLeg?.vehicle_type_id ?? null,
-      vehicle_description: firstLeg?.vehicle_types?.name ?? firstLeg?.vehicle_description ?? null,
+      van_size: vanSize,
       supplier_estimated_cost: supplierEstimatedCost,
       selling_price: sellingPrice,
       vat_rate: vatRate,

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bus } from "lucide-react";
+import { Truck } from "lucide-react";
 
 /**
  * UI-NAV-03 — a branded 404 instead of Next's bare, chrome-less default.
@@ -12,7 +12,7 @@ export default function NotFound() {
     <div className="grid min-h-screen place-items-center bg-appbg px-4 text-center">
       <div>
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-primary-500 text-white">
-          <Bus size={30} />
+          <Truck size={30} />
         </div>
         <h1 className="mt-6 text-4xl font-black text-slate-900">404</h1>
         <p className="mt-2 text-lg font-bold text-slate-700">Page not found</p>

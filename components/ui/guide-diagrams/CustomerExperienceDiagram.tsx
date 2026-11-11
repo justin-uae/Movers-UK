@@ -7,7 +7,7 @@ export function CustomerExperienceDiagram() {
   return (
     <Frame>
       <Text x={20} y={18} size={8} fill={PRIMARY} weight={800} uppercase letterSpacing={0.4}>
-        Post-Trip
+        Post-Move
       </Text>
       <Text x={20} y={37} size={17} weight={800}>
         Customer Experience

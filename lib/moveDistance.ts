@@ -1,6 +1,6 @@
 import "server-only";
 
-export interface TripDistance {
+export interface MoveDistance {
   distanceKm: number;
   durationMinutes: number;
 }
@@ -10,7 +10,7 @@ export interface TripDistance {
  * Routes API — grounds the AI price estimate (lib/aiPriceEstimate.ts,
  * lib/aiAutoQuote.ts) in an actual number instead of asking the model to
  * guess both the geography AND the price from two address strings alone,
- * which is what made repeated estimates for the same unchanged trip swing
+ * which is what made repeated estimates for the same unchanged move swing
  * wildly (e.g. MXN 25,000 on one call, MXN 4,500 on the very next). Returns
  * null on any failure (no key, API error, no route found, addresses too
  * vague to resolve) so the caller falls back to an ungrounded estimate
@@ -20,25 +20,21 @@ export interface TripDistance {
 export interface RouteSegment {
   from: string;
   to: string;
-  distance: TripDistance | null;
+  distance: MoveDistance | null;
 }
 
 export interface RouteDistance {
   segments: RouteSegment[];
-  /** Null when any segment couldn't be resolved — a partial sum would understate the trip. */
-  total: TripDistance | null;
+  /** Null when any segment couldn't be resolved — a partial sum would understate the route. */
+  total: MoveDistance | null;
 }
 
-/**
- * Stop-by-stop driving distance along an ordered list of stops (A→B, B→C, …)
- * — used for a leg with via points or a multi-leg journey, where a single
- * pickup→destination figure would hide the real route.
- */
+/** Stop-by-stop driving distance along an ordered list of stops (A→B, B→C, …). */
 export async function estimateRouteDistance(stops: (string | null)[]): Promise<RouteDistance> {
   const clean = stops.map((s) => s?.trim() ?? "").filter(Boolean);
   const pairs = clean.slice(1).map((to, i) => ({ from: clean[i]!, to }));
   const segments = await Promise.all(
-    pairs.map(async ({ from, to }) => ({ from, to, distance: await estimateTripDistance(from, to) })),
+    pairs.map(async ({ from, to }) => ({ from, to, distance: await estimateMoveDistance(from, to) })),
   );
   const total =
     segments.length > 0 && segments.every((s) => s.distance)
@@ -51,20 +47,15 @@ export async function estimateRouteDistance(stops: (string | null)[]): Promise<R
 }
 
 /**
- * One stop-by-stop route distance per leg (pickup → via points →
- * destination), index-aligned with `legs` — what every page showing
- * JourneyLegDetail passes as its `distance` prop (lead, quote, new-quote,
- * dispatch job, supplier job).
+ * Pickup → destination driving distance per move, index-aligned with
+ * `legs` — what every page showing MoveDetailCard passes as its
+ * `distance` prop (lead, quote, new-quote, dispatch job, supplier job).
  */
-export function legRouteDistances(
-  legs: { pickup_address: string; destination_address: string; via_points: string[] | null }[],
-): Promise<RouteDistance[]> {
-  return Promise.all(
-    legs.map((leg) => estimateRouteDistance([leg.pickup_address, ...(leg.via_points ?? []), leg.destination_address])),
-  );
+export function moveRouteDistances(legs: { pickup_address: string; destination_address: string }[]): Promise<RouteDistance[]> {
+  return Promise.all(legs.map((leg) => estimateRouteDistance([leg.pickup_address, leg.destination_address])));
 }
 
-export async function estimateTripDistance(pickup: string | null, destination: string | null): Promise<TripDistance | null> {
+export async function estimateMoveDistance(pickup: string | null, destination: string | null): Promise<MoveDistance | null> {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   if (!apiKey || !pickup?.trim() || !destination?.trim()) return null;
 
@@ -86,7 +77,7 @@ export async function estimateTripDistance(pickup: string | null, destination: s
       }),
     });
     if (!res.ok) {
-      console.error("estimateTripDistance: Routes API returned", res.status, (await res.text()).slice(0, 300));
+      console.error("estimateMoveDistance: Routes API returned", res.status, (await res.text()).slice(0, 300));
       return null;
     }
     const data = (await res.json()) as { routes?: { distanceMeters?: number; duration?: string }[] };
@@ -99,7 +90,7 @@ export async function estimateTripDistance(pickup: string | null, destination: s
       durationMinutes: Math.round(seconds / 60),
     };
   } catch (err) {
-    console.error("estimateTripDistance failed:", err);
+    console.error("estimateMoveDistance failed:", err);
     return null;
   }
 }

@@ -3,7 +3,7 @@ import { requireSupplier } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SupplierJobDetail } from "@/components/pages/SupplierJobDetail";
-import { legRouteDistances } from "@/lib/tripDistance";
+import { moveRouteDistances } from "@/lib/moveDistance";
 import type { JobAllocationOfferView, JobSupplierInvoice } from "@/lib/supabase/database.types";
 
 export default async function SupplierJobDetailPage({ params }: { params: Promise<{ allocationId: string }> }) {
@@ -42,7 +42,7 @@ export default async function SupplierJobDetailPage({ params }: { params: Promis
   if (!job) notFound();
 
   const offerView = job as JobAllocationOfferView;
-  const legDistancesPromise = legRouteDistances(offerView.legs ?? []);
+  const legDistancesPromise = moveRouteDistances(offerView.legs ?? []);
 
   let invoiceUrl: string | null = null;
   if (invoice) {

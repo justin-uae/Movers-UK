@@ -33,10 +33,10 @@ export function BrandsDiagram() {
       <rect x={330} y={84} width={300} height={44} rx={12} fill="#ffffff" stroke={LINE} />
       <circle cx={354} cy={106} r={12} fill={FAINT} />
       <Text x={372} y={102} size={8.5} weight={800}>
-        City Transfers Ltd
+        City Removals Ltd
       </Text>
       <Text x={372} y={114} size={7} fill={MUTED}>
-        City Transfers · GBP
+        City Removals · GBP
       </Text>
 
       <rect x={20} y={148} width={230} height={22} rx={11} fill="#ffffff" stroke={LINE} />
@@ -59,10 +59,10 @@ export function BrandsDiagram() {
       <rect x={330} y={206} width={300} height={70} rx={14} fill="#ffffff" stroke={LINE} />
       <circle cx={348} cy={224} r={6} fill="#2563eb" />
       <Text x={362} y={228} size={8.5} weight={800}>
-        City Transfers
+        City Removals
       </Text>
       <Text x={362} y={240} size={7} fill={MUTED}>
-        City Transfers Ltd · GBP
+        City Removals Ltd · GBP
       </Text>
       <LabelPill x={342} y={252} h={16} anchor="start" fill="#f1f5f9" textFill={INK} label="Webhook slug + secret" size={6.5} padX={6} />
 

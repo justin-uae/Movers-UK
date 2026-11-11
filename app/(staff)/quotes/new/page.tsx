@@ -6,8 +6,8 @@ import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 import { landingHrefForProfile } from "@/lib/landing";
-import type { JourneyLeg } from "@/components/pages/JourneyLegDetail";
-import { legRouteDistances } from "@/lib/tripDistance";
+import type { MoveLeg } from "@/components/pages/MoveDetailCard";
+import { moveRouteDistances } from "@/lib/moveDistance";
 import { NewQuoteForm } from "./NewQuoteForm";
 import { BRAND } from "@/lib/brandConfig";
 
@@ -49,7 +49,7 @@ export default async function NewQuotePage({
                   <div>
                     <div className="font-bold">{customer?.company_name || customer?.contact_name || "Enquiry"}</div>
                     <div className="text-xs text-slate-500">
-                      {leg ? `${leg.pickup_address} → ${leg.destination_address}` : "No journey details yet"}
+                      {leg ? `${leg.pickup_address} → ${leg.destination_address}` : "No move details yet"}
                     </div>
                   </div>
                   <span className="text-xs font-bold text-primary-600">Quote this →</span>
@@ -73,17 +73,17 @@ export default async function NewQuotePage({
   const { data: enquiry } = await supabase
     .from("enquiries")
     .select(
-      "id, brand_id, customer_id, customers(company_name, contact_name, email, phone, whatsapp, country), enquiry_legs(sequence, journey_type, pickup_address, destination_address, via_points, pickup_date, pickup_time, return_date, return_time, passenger_count, luggage_count, wheelchair_required, child_seats, special_requirements, vehicle_types(name)), brands(default_currency)",
+      "id, brand_id, customer_id, customers(company_name, contact_name, email, phone, whatsapp, country), enquiry_legs(id, sequence, pickup_address, destination_address, pickup_date, pickup_time, van_size, special_requirements, move_type, property_type, rooms, estimated_boxes, pickup_floor, destination_floor, lift_available, packing_needed, dismantling_needed, assembly_needed, storage_needed, fragile_items), brands(default_currency)",
     )
     .eq("id", enquiryId)
     .single();
 
   if (!enquiry) redirect("/quotes/new");
 
-  const legs = [...((enquiry.enquiry_legs as unknown as JourneyLeg[] | null) ?? [])].sort((a, b) => a.sequence - b.sequence);
+  const legs = [...((enquiry.enquiry_legs as unknown as MoveLeg[] | null) ?? [])].sort((a, b) => a.sequence - b.sequence);
   const [canSend, legDistances, { data: tenant }] = await Promise.all([
     hasPermission(profile, PERMISSIONS.QUOTES_SEND),
-    legRouteDistances(legs),
+    moveRouteDistances(legs),
     supabase.from("tenants").select("quote_validity_days").eq("id", profile.tenant_id).single(),
   ]);
   const customer = enquiry.customers as unknown as {
@@ -98,7 +98,7 @@ export default async function NewQuotePage({
 
   return (
     <div>
-      <PageHead eyebrow="Sales Workspace" title="Build Quote" text="Price the journey and send a professional quotation." />
+      <PageHead eyebrow="Sales Workspace" title="Build Quote" text="Price the move and send a professional quotation." />
       <NewQuoteForm
         enquiryId={enquiry.id}
         customer={{

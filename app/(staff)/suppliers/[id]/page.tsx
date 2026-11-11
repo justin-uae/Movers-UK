@@ -49,7 +49,7 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
       <PageHead
         eyebrow="Operations"
         title={supplier.name}
-        text={`${supplier.type === "individual" ? "Individual driver" : "Company / travel agency"} · ${supplier.region ?? "No region set"}`}
+        text={`${supplier.type === "individual" ? "Individual / man and van" : "Company / removals firm"} · ${supplier.region ?? "No region set"}`}
         action={
           <div className="flex flex-wrap items-center gap-3">
             <BackLink fallbackHref="/suppliers" label="Back to Suppliers" />
@@ -109,19 +109,18 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
 
         <div className="space-y-5">
           <Panel>
-            <SectionTitle title="Vehicles" sub={`${(vehicles ?? []).length} submitted`} />
+            <SectionTitle title="Vans" sub={`${(vehicles ?? []).length} submitted`} />
             <div className="mt-4 space-y-2">
               {(vehicles ?? []).map((v) => (
                 <div key={v.id} className="flex items-center gap-3 rounded-xl border p-3 text-sm">
                   <Truck size={16} className="shrink-0 text-slate-400" />
                   <div>
-                    <b>{v.vehicle_type}</b>
-                    {v.seat_capacity && <span className="text-slate-500"> · {v.seat_capacity} seats</span>}
+                    <b>{v.van_size ?? "Van"}</b>
                     {v.plate_number && <span className="text-slate-500"> · {v.plate_number}</span>}
                   </div>
                 </div>
               ))}
-              {(vehicles ?? []).length === 0 && <p className="text-sm text-slate-400">No vehicles submitted yet.</p>}
+              {(vehicles ?? []).length === 0 && <p className="text-sm text-slate-400">No vans submitted yet.</p>}
             </div>
           </Panel>
 

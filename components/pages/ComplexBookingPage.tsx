@@ -1,22 +1,22 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Wand2, Plus, Trash2, Upload, FileText, X, Loader2 } from "lucide-react";
+import { Wand2, Upload, FileText, X, Loader2 } from "lucide-react";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { TimePicker } from "@/components/ui/TimePicker";
 import { PhoneNumberField } from "@/components/ui/PhoneNumberField";
 import { CustomerCombobox } from "@/components/ui/CustomerCombobox";
+import { MoveDetailsEditor, VanSizeSelect } from "@/components/ui/MoveDetailsEditor";
 import { useToast } from "@/components/ui/Toast";
 import { createClient } from "@/lib/supabase/client";
 import {
   extractComplexBookingAction,
   createComplexBookingLeadAction,
   type ComplexBookingFileRef,
-  type ComplexBookingLegInput,
 } from "@/app/(staff)/leads/complex-booking/actions";
 import { extractComplexBookingFromLeadAction, convertLeadToComplexBookingAction } from "@/app/(staff)/leads/[id]/complex-booking/actions";
-import type { JourneyType } from "@/lib/supabase/database.types";
+import { NO_MOVE_DETAILS, pickMoveDetails, type MoveDetails } from "@/lib/moveDetails";
 import type { DuplicateCustomerMatch } from "@/lib/customerDuplicates";
 import type { ComplexBookingExtraction } from "@/lib/complexBookingExtraction";
 
@@ -28,50 +28,22 @@ interface CustomerOption {
   phone: string | null;
 }
 
-interface EditableLeg {
-  clientId: string;
-  /** Index in the AI's original `legs` array, or null for a manually-added leg — used to match `uncertain_fields` paths like "legs[0].pickup_date" back to this leg. */
-  sourceIndex: number | null;
-  journeyType: JourneyType;
+interface EditableMove {
   pickupAddress: string;
   destinationAddress: string;
-  pickupDate: string;
-  pickupTime: string;
-  returnDate: string;
-  returnTime: string;
-  passengers: number;
-  luggage: number;
-  vehicleDescription: string;
-  wheelchair: boolean;
-  childSeats: number;
+  moveDate: string;
+  moveTime: string;
+  vanSize: string | null;
   specialRequirements: string;
 }
+
+const BLANK_MOVE: EditableMove = { pickupAddress: "", destinationAddress: "", moveDate: "", moveTime: "", vanSize: null, specialRequirements: "" };
 
 /** AI-extracted phone numbers come formatted with spaces/dashes (e.g. "+44 7700 900123") — react-phone-number-input needs strict E.164. */
 function toE164(phone: string | null): string {
   if (!phone) return "";
   const stripped = phone.replace(/[^\d+]/g, "");
   return /^\+[1-9]\d{1,14}$/.test(stripped) ? stripped : "";
-}
-
-function blankLeg(): EditableLeg {
-  return {
-    clientId: crypto.randomUUID(),
-    sourceIndex: null,
-    journeyType: "one_way",
-    pickupAddress: "",
-    destinationAddress: "",
-    pickupDate: "",
-    pickupTime: "",
-    returnDate: "",
-    returnTime: "",
-    passengers: 1,
-    luggage: 0,
-    vehicleDescription: "",
-    wheelchair: false,
-    childSeats: 0,
-    specialRequirements: "",
-  };
 }
 
 export function ComplexBookingPage({
@@ -106,7 +78,8 @@ export function ComplexBookingPage({
   const [customerMode, setCustomerMode] = useState<"existing" | "new">(customers.length > 0 ? "existing" : "new");
   const [existingCustomerId, setExistingCustomerId] = useState("");
   const [newCustomer, setNewCustomer] = useState({ contactName: "", companyName: "", email: "", phone: "" });
-  const [legs, setLegs] = useState<EditableLeg[]>([]);
+  const [move, setMove] = useState<EditableMove>(BLANK_MOVE);
+  const [moveDetails, setMoveDetails] = useState<MoveDetails>(NO_MOVE_DETAILS);
   const [internalNotes, setInternalNotes] = useState("");
   const [uncertainFields, setUncertainFields] = useState<Set<string>>(new Set());
   const [extractWarning, setExtractWarning] = useState<string | null>(null);
@@ -165,25 +138,16 @@ export function ComplexBookingPage({
       }
     }
 
-    setLegs(
-      data.legs.map((leg, i) => ({
-        clientId: crypto.randomUUID(),
-        sourceIndex: i,
-        journeyType: leg.journey_type,
-        pickupAddress: leg.pickup_address,
-        destinationAddress: leg.destination_address,
-        pickupDate: leg.pickup_date ?? "",
-        pickupTime: leg.pickup_time ?? "",
-        returnDate: leg.return_date ?? "",
-        returnTime: leg.return_time ?? "",
-        passengers: leg.passenger_count ?? 1,
-        luggage: leg.luggage_count ?? 0,
-        vehicleDescription: leg.vehicle_notes ?? "",
-        wheelchair: false,
-        childSeats: 0,
-        specialRequirements: leg.special_requirements ?? "",
-      })),
-    );
+    const m = data.move;
+    setMove({
+      pickupAddress: m.pickup_address ?? "",
+      destinationAddress: m.destination_address ?? "",
+      moveDate: m.move_date ?? "",
+      moveTime: m.move_time ?? "",
+      vanSize: m.van_size,
+      specialRequirements: m.special_requirements ?? "",
+    });
+    setMoveDetails(pickMoveDetails(m));
     setInternalNotes(data.internal_notes ?? "");
     setUncertainFields(new Set(data.uncertain_fields));
     setExtractWarning(warning);
@@ -195,11 +159,11 @@ export function ComplexBookingPage({
     startTransition(async () => {
       const result = await extractComplexBookingAction({ pastedText, file });
       if (result.error || !result.data) {
-        setError(result.error ?? "Could not read this itinerary.");
+        setError(result.error ?? "Could not read this enquiry.");
         return;
       }
       applyExtraction(result.data, result.warning);
-      notify(`AI found ${result.data.legs.length} leg${result.data.legs.length === 1 ? "" : "s"} — review before creating the lead`);
+      notify("AI read the move details — review before creating the lead");
       setPhase("review");
     });
   }
@@ -217,7 +181,7 @@ export function ComplexBookingPage({
         return;
       }
       applyExtraction(result.data, result.warning);
-      notify(`AI found ${result.data.legs.length} leg${result.data.legs.length === 1 ? "" : "s"} — review before saving`);
+      notify("AI read the move details — review before saving");
       setPhase("review");
     });
   }
@@ -231,56 +195,35 @@ export function ComplexBookingPage({
     return uncertainFields.has(path);
   }
 
-  function legPath(leg: EditableLeg, field: string) {
-    return leg.sourceIndex === null ? "" : `legs[${leg.sourceIndex}].${field}`;
-  }
-
   function fieldClass(base: string, uncertain: boolean) {
     return uncertain ? `${base} border-amber-400 ring-1 ring-amber-300 bg-amber-50/60` : base;
   }
 
-  function updateLeg(clientId: string, patch: Partial<EditableLeg>) {
-    setLegs((prev) => prev.map((l) => (l.clientId === clientId ? { ...l, ...patch } : l)));
-  }
-
-  function removeLeg(clientId: string) {
-    setLegs((prev) => prev.filter((l) => l.clientId !== clientId));
-  }
+  const pickerUncertainClass =
+    "mt-1.5 flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-base font-normal border-amber-400 ring-1 ring-amber-300 bg-amber-50/60";
 
   function submit(confirmDuplicate = false) {
     setError(null);
     setDuplicateWarning(null);
-    if (legs.length === 0) {
-      setError("Add at least one journey leg.");
+    if (!move.pickupAddress.trim() || !move.destinationAddress.trim()) {
+      setError("Enter both the moving-from and moving-to address.");
       return;
     }
-    for (const leg of legs) {
-      if (!leg.pickupAddress.trim() || !leg.destinationAddress.trim()) {
-        setError("Every leg needs a pickup and destination address.");
-        return;
-      }
-    }
 
-    const legInputs: ComplexBookingLegInput[] = legs.map((l) => ({
-      journeyType: l.journeyType,
-      pickupAddress: l.pickupAddress.trim(),
-      destinationAddress: l.destinationAddress.trim(),
-      pickupDate: l.pickupDate || null,
-      pickupTime: l.pickupTime || null,
-      returnDate: l.returnDate || null,
-      returnTime: l.returnTime || null,
-      passengerCount: l.passengers || null,
-      luggageCount: l.luggage || null,
-      vehicleDescription: l.vehicleDescription.trim() || null,
-      wheelchairRequired: l.wheelchair,
-      childSeats: l.childSeats,
-      specialRequirements: l.specialRequirements.trim() || null,
-    }));
+    const moveInput = {
+      pickupAddress: move.pickupAddress.trim(),
+      destinationAddress: move.destinationAddress.trim(),
+      moveDate: move.moveDate || null,
+      moveTime: move.moveTime || null,
+      moveDetails,
+      vanSize: move.vanSize,
+      specialRequirements: move.specialRequirements.trim() || null,
+    };
 
     startTransition(async () => {
       if (leadConversion) {
         const result = await convertLeadToComplexBookingAction(leadConversion.leadId, {
-          legs: legInputs,
+          move: moveInput,
           internalNotes: internalNotes.trim() || null,
         });
         if (result?.error) setError(result.error);
@@ -291,7 +234,7 @@ export function ComplexBookingPage({
       const result = await createComplexBookingLeadAction({
         existingCustomerId: customerMode === "existing" ? existingCustomerId : null,
         newCustomer: customerMode === "new" ? newCustomer : null,
-        legs: legInputs,
+        move: moveInput,
         internalNotes: internalNotes.trim() || null,
         pastedText: pastedText.trim() || null,
         sourceFile: file,
@@ -334,20 +277,20 @@ export function ComplexBookingPage({
   if (phase === "input") {
     return (
       <div>
-        <SectionTitle title="Paste itinerary or upload a quote" sub="AI will read it and build the journey legs for you to review" />
+        <SectionTitle title="Paste an enquiry or upload a document" sub="AI will read it and fill in the move details for you to review" />
         <div className="mt-5 space-y-4">
           <label className="block text-sm font-bold">
-            Pasted itinerary text
+            Pasted enquiry text
             <textarea
               value={pastedText}
               onChange={(e) => setPastedText(e.target.value)}
-              placeholder="Paste an email, itinerary, or quote request here…"
+              placeholder="Paste an email, inventory, or quote request here…"
               className="mt-2 min-h-40 w-full rounded-xl border px-3 py-3 text-base font-normal sm:text-sm"
             />
           </label>
 
           <div>
-            <span className="block text-sm font-bold">Or upload a quote file</span>
+            <span className="block text-sm font-bold">Or upload a document</span>
 
             {fileLabel ? (
               <div className="mt-2 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -386,7 +329,7 @@ export function ComplexBookingPage({
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-bold text-slate-700">{uploading ? "Uploading…" : "Choose a file"}</div>
-                  <div className="text-xs text-slate-400">PDF, Word (.docx) or an image of a quote</div>
+                  <div className="text-xs text-slate-400">PDF, Word (.docx) or an image — e.g. an inventory or quote request</div>
                 </div>
               </label>
             )}
@@ -401,7 +344,7 @@ export function ComplexBookingPage({
             className="flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60"
           >
             <Wand2 size={16} />
-            {pending ? "Reading itinerary…" : "Extract with AI"}
+            {pending ? "Reading enquiry…" : "Extract with AI"}
           </button>
         </div>
       </div>
@@ -496,186 +439,63 @@ export function ComplexBookingPage({
         </>
       )}
 
-      <div className="mt-6 flex items-center justify-between">
-        <div className="text-xs font-black uppercase tracking-wide text-primary-500">Journey legs ({legs.length})</div>
-        <button
-          type="button"
-          onClick={() => setLegs((prev) => [...prev, blankLeg()])}
-          className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600"
-        >
-          <Plus size={13} />
-          Add leg
-        </button>
-      </div>
-
-      <div className="mt-3 space-y-4">
-        {legs.map((leg, i) => (
-          <div key={leg.clientId} className="rounded-2xl border p-4">
-            <div className="flex items-center justify-between">
-              <b className="text-sm">Leg {i + 1}</b>
-              <button
-                type="button"
-                onClick={() => removeLeg(leg.clientId)}
-                className="shrink-0 rounded-lg p-1.5 text-red-600 hover:bg-red-50"
-                aria-label="Remove leg"
-              >
-                <Trash2 size={15} />
-              </button>
-            </div>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
-              <label className="text-sm font-bold">
-                Journey type
-                <select
-                  value={leg.journeyType}
-                  onChange={(e) => updateLeg(leg.clientId, { journeyType: e.target.value as JourneyType })}
-                  className="mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal"
-                >
-                  <option value="one_way">One way</option>
-                  <option value="return">Return</option>
-                  <option value="disposal">Disposal hire</option>
-                  <option value="multi_day">Multi-day</option>
-                </select>
-              </label>
-              <label className="text-sm font-bold">
-                Pickup date
-                <DatePicker
-                  value={leg.pickupDate}
-                  onChange={(v) => updateLeg(leg.clientId, { pickupDate: v })}
-                  className={
-                    isUncertain(legPath(leg, "pickup_date"))
-                      ? "mt-1.5 flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-base font-normal border-amber-400 ring-1 ring-amber-300 bg-amber-50/60"
-                      : undefined
-                  }
-                />
-              </label>
-              <label className="text-sm font-bold">
-                Pickup address
-                <input
-                  value={leg.pickupAddress}
-                  onChange={(e) => updateLeg(leg.clientId, { pickupAddress: e.target.value })}
-                  className={fieldClass("mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal", isUncertain(legPath(leg, "pickup_address")))}
-                />
-              </label>
-              <label className="text-sm font-bold">
-                Destination
-                <input
-                  value={leg.destinationAddress}
-                  onChange={(e) => updateLeg(leg.clientId, { destinationAddress: e.target.value })}
-                  className={fieldClass(
-                    "mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal",
-                    isUncertain(legPath(leg, "destination_address")),
-                  )}
-                />
-              </label>
-              <label className="text-sm font-bold">
-                Pickup time
-                <TimePicker
-                  value={leg.pickupTime}
-                  onChange={(v) => updateLeg(leg.clientId, { pickupTime: v })}
-                  className={
-                    isUncertain(legPath(leg, "pickup_time"))
-                      ? "mt-1.5 flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-base font-normal border-amber-400 ring-1 ring-amber-300 bg-amber-50/60"
-                      : undefined
-                  }
-                />
-              </label>
-              {leg.journeyType === "return" && (
-                <>
-                  <label className="text-sm font-bold">
-                    Return date
-                    <DatePicker
-                      value={leg.returnDate}
-                      onChange={(v) => updateLeg(leg.clientId, { returnDate: v })}
-                      className={
-                        isUncertain(legPath(leg, "return_date"))
-                          ? "mt-1.5 flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-base font-normal border-amber-400 ring-1 ring-amber-300 bg-amber-50/60"
-                          : undefined
-                      }
-                    />
-                  </label>
-                  <label className="text-sm font-bold">
-                    Return time
-                    <TimePicker
-                      value={leg.returnTime}
-                      onChange={(v) => updateLeg(leg.clientId, { returnTime: v })}
-                      className={
-                        isUncertain(legPath(leg, "return_time"))
-                          ? "mt-1.5 flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-base font-normal border-amber-400 ring-1 ring-amber-300 bg-amber-50/60"
-                          : undefined
-                      }
-                    />
-                  </label>
-                </>
-              )}
-              <label className="text-sm font-bold">
-                Passengers
-                <input
-                  type="number"
-                  min={1}
-                  value={leg.passengers}
-                  onChange={(e) => updateLeg(leg.clientId, { passengers: Number(e.target.value) })}
-                  className={fieldClass(
-                    "mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal",
-                    isUncertain(legPath(leg, "passenger_count")),
-                  )}
-                />
-              </label>
-              <label className="text-sm font-bold">
-                Luggage
-                <input
-                  type="number"
-                  min={0}
-                  value={leg.luggage}
-                  onChange={(e) => updateLeg(leg.clientId, { luggage: Number(e.target.value) })}
-                  className={fieldClass("mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal", isUncertain(legPath(leg, "luggage_count")))}
-                />
-              </label>
-              <label className="text-sm font-bold">
-                Vehicle type
-                <input
-                  type="text"
-                  value={leg.vehicleDescription}
-                  onChange={(e) => updateLeg(leg.clientId, { vehicleDescription: e.target.value })}
-                  placeholder="e.g. 45-seat coach, SUV, minivan"
-                  className={fieldClass("mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal", isUncertain(legPath(leg, "vehicle_notes")))}
-                />
-              </label>
-              <label className="text-sm font-bold">
-                Child seats
-                <input
-                  type="number"
-                  min={0}
-                  value={leg.childSeats}
-                  onChange={(e) => updateLeg(leg.clientId, { childSeats: Number(e.target.value) })}
-                  className="mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal"
-                />
-              </label>
-              <label className="flex items-center gap-2 text-sm font-bold">
-                <input
-                  type="checkbox"
-                  checked={leg.wheelchair}
-                  onChange={(e) => updateLeg(leg.clientId, { wheelchair: e.target.checked })}
-                  className="h-4 w-4"
-                />
-                Wheelchair accessible required
-              </label>
-              <label className="text-sm font-bold md:col-span-2">
-                Special requirements
-                <textarea
-                  value={leg.specialRequirements}
-                  onChange={(e) => updateLeg(leg.clientId, { specialRequirements: e.target.value })}
-                  className={fieldClass(
-                    "mt-1.5 min-h-16 w-full rounded-xl border px-3 py-2.5 font-normal",
-                    isUncertain(legPath(leg, "special_requirements")),
-                  )}
-                />
-              </label>
-            </div>
-          </div>
-        ))}
-        {legs.length === 0 && (
-          <p className="rounded-xl bg-slate-50 py-6 text-center text-sm text-slate-500">No legs yet — add one to continue.</p>
-        )}
+      <div className="mt-6 text-xs font-black uppercase tracking-wide text-primary-500">Move</div>
+      <div className="mt-3 rounded-2xl border p-4">
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="text-sm font-bold">
+            Moving from
+            <input
+              value={move.pickupAddress}
+              onChange={(e) => setMove({ ...move, pickupAddress: e.target.value })}
+              className={fieldClass("mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal", isUncertain("move.pickup_address"))}
+            />
+          </label>
+          <label className="text-sm font-bold">
+            Moving to
+            <input
+              value={move.destinationAddress}
+              onChange={(e) => setMove({ ...move, destinationAddress: e.target.value })}
+              className={fieldClass("mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal", isUncertain("move.destination_address"))}
+            />
+          </label>
+          <label className="text-sm font-bold">
+            Move date
+            <DatePicker
+              value={move.moveDate}
+              onChange={(v) => setMove({ ...move, moveDate: v })}
+              className={isUncertain("move.move_date") ? pickerUncertainClass : undefined}
+            />
+          </label>
+          <label className="text-sm font-bold">
+            Start time
+            <TimePicker
+              value={move.moveTime}
+              onChange={(v) => setMove({ ...move, moveTime: v })}
+              className={isUncertain("move.move_time") ? pickerUncertainClass : undefined}
+            />
+          </label>
+        </div>
+        <div className="mt-4">
+          <MoveDetailsEditor value={moveDetails} onChange={setMoveDetails} />
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <label className="text-sm font-bold">
+            Van size
+            <VanSizeSelect
+              value={move.vanSize}
+              onChange={(v) => setMove({ ...move, vanSize: v })}
+              className={fieldClass("mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal", isUncertain("move.van_size"))}
+            />
+          </label>
+          <label className="text-sm font-bold md:col-span-2">
+            Inventory and access notes
+            <textarea
+              value={move.specialRequirements}
+              onChange={(e) => setMove({ ...move, specialRequirements: e.target.value })}
+              className={fieldClass("mt-1.5 min-h-16 w-full rounded-xl border px-3 py-2.5 font-normal", isUncertain("move.special_requirements"))}
+            />
+          </label>
+        </div>
       </div>
 
       <label className="mt-5 block text-sm font-bold">

@@ -13,7 +13,7 @@ export function CommissionsDiagram() {
         Commission management
       </Text>
       <Text x={20} y={52} size={9} fill={MUTED}>
-        Payable only after the journey is completed and final costs approved
+        Payable only after the move is completed and final costs approved
       </Text>
 
       <LabelPill x={660} y={14} h={26} anchor="end" fill="#ffffff" stroke={LINE} textFill={INK} label="?  How this works" size={9} />

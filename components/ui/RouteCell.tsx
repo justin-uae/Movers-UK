@@ -4,7 +4,7 @@
  * containing table to grow and scroll horizontally — the full address is
  * still available via the native title tooltip on hover.
  */
-export function JourneyCell({
+export function RouteCell({
   pickup,
   destination,
   maxWidth = "240px",

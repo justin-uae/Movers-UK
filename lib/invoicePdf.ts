@@ -32,7 +32,7 @@ interface LineItemRow {
 }
 
 interface VersionRow {
-  vehicle_description: string | null;
+  van_size: string | null;
   selling_price: number;
   vat_rate: number;
   brand_snapshot: BrandSnapshot | null;
@@ -93,7 +93,7 @@ export async function generateInvoicePdf(
     .select(
       "id, quote_number, currency, brand_id, tenant_id, invoice_number, invoiced_at, " +
         "customers(company_name, contact_name, email, phone, billing_address), " +
-        "quote_versions!quotes_current_version_id_fkey(vehicle_description, selling_price, vat_rate, brand_snapshot, quote_line_items(description, amount), terms_snapshot), " +
+        "quote_versions!quotes_current_version_id_fkey(van_size, selling_price, vat_rate, brand_snapshot, quote_line_items(description, amount), terms_snapshot), " +
         "customer_payments(amount, method, paid_at)",
     )
     .eq("id", quoteId)
@@ -239,7 +239,7 @@ export async function generateInvoicePdf(
   // total follow as their own rows (0105_quote_vat.sql, lib/vat.ts).
   const { net, vat } = vatBreakdown(version.selling_price, version.vat_rate);
   const summaryRows: [string, string][] = [
-    [version.vehicle_description ?? "Transport service", money(net, quote.currency)],
+    [version.van_size ? `Removal service — ${version.van_size}` : "Removal service", money(net, quote.currency)],
   ];
   if (version.quote_line_items && version.quote_line_items.length > 0) {
     for (const li of version.quote_line_items) {

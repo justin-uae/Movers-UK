@@ -94,7 +94,7 @@ function money(amount: number | undefined | null, currency: string) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
 }
 
-function journeySummary(legs: LegsRef) {
+function moveSummary(legs: LegsRef) {
   const leg = legs?.enquiry_legs?.[0];
   if (!leg) return "—";
   return `${leg.pickup_address} → ${leg.destination_address}`;
@@ -137,10 +137,10 @@ export function BookingsConfirmedPage({ jobs }: { jobs: ConfirmedBookingJob[] })
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
-                  <span>{journeySummary(job.quotes?.enquiries ?? null)}</span>
+                  <span>{moveSummary(job.quotes?.enquiries ?? null)}</span>
                   <span className="font-bold">{money(job.quotes?.quote_versions?.selling_price, job.quotes?.currency ?? BRAND.defaultCurrency)}</span>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">Travel date: {leg?.pickup_date ? formatDate(leg.pickup_date) : "—"}</p>
+                <p className="mt-1 text-xs text-slate-500">Move date: {leg?.pickup_date ? formatDate(leg.pickup_date) : "—"}</p>
                 {allocationSummary(job.job_allocations) && (
                   <p className="mt-1 text-xs text-slate-500">{allocationSummary(job.job_allocations)}</p>
                 )}

@@ -68,6 +68,8 @@ services:
         sync: false
       - key: WHATSAPP_TEMPLATE_HEADER_IMAGE_URL
         sync: false
+      - key: RECAPTCHA_SECRET_KEY
+        sync: false
       - key: OPENAI_API_KEY
         sync: false
       - key: LEADS_INBOX_IMAP_HOST

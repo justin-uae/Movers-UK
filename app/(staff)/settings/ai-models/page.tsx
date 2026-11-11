@@ -37,10 +37,10 @@ export default async function AiModelsPage() {
                 heading: "What each card controls",
                 bullets: true,
                 body: [
-                  "WhatsApp Conversation — the bot that chats with a customer over WhatsApp and gathers their trip details.",
+                  "WhatsApp Conversation — the bot that chats with a customer over WhatsApp and gathers their move details.",
                   "Pricing & Auto-Quote — the one pricing engine behind the SLA-breach sweep, instant quoting for new WhatsApp leads, instant quoting when a lead is manually assigned to AI, and the Master Admin benchmark button on an existing quote. All four always use the same model, so pricing never disagrees with itself depending on which one triggered it.",
-                  "Email Lead Intake — the hourly sweep that reads the shared enquiry inbox and decides which forwarded emails are genuine travel enquiries.",
-                  "Complex Booking Extraction — reads a pasted itinerary or an uploaded file (image, PDF, or Word document) and extracts a structured multi-leg booking. The only feature here that sends images/files to the model, not just text.",
+                  "Email Lead Intake — the hourly sweep that reads the shared enquiry inbox and decides which forwarded emails are genuine moving enquiries.",
+                  "Complex Booking Extraction — reads a pasted enquiry or an uploaded file (image, PDF, or Word document) and extracts the move details for a booking. The only feature here that sends images/files to the model, not just text.",
                 ],
               },
               {

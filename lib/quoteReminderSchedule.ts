@@ -20,7 +20,7 @@ export const REMINDER_TEMPLATE_KEYS: Record<QuoteReminderKind, EmailTemplateKey[
   payment: ["quote_payment_reminder", "quote_payment_reminder", "quote_payment_reminder"],
 };
 
-/** No reminder goes out in the last 12 hours before the trip — by then it's a phone call, not an email. */
+/** No reminder goes out in the last 12 hours before the move — by then it's a phone call, not an email. */
 const TRAVEL_CUTOFF_HOURS = 12;
 
 /** Status -> which sequence applies. Anything else (paid, rejected, cancelled, expired, partially paid…) gets none. */
@@ -49,10 +49,10 @@ export interface ScheduledReminder {
 
 /**
  * When each step of the sequence is due. Normally anchor + the step's
- * offset; for a trip coming up soon, every offset is scaled down
- * proportionally so the whole sequence still fits before the trip (minus
+ * offset; for a move coming up soon, every offset is scaled down
+ * proportionally so the whole sequence still fits before the move (minus
  * TRAVEL_CUTOFF_HOURS), rather than the later reminders landing after the
- * customer has already travelled. Steps that would fall after the quote's
+ * customer has already moved. Steps that would fall after the quote's
  * expiry, or after the cutoff, are dropped.
  */
 export function reminderSchedule(
@@ -85,8 +85,8 @@ export function reminderAnchor(start: string, enabledAt: string | null): Date {
   return new Date(Math.max(startMs, enabledMs));
 }
 
-/** Earliest pickup date across the quote's legs — the trip start the schedule is compressed against. */
-export function earliestTravelDate(legs: { pickup_date: string | null }[]): string | null {
+/** Earliest pickup date across the quote's legs — the move start the schedule is compressed against. */
+export function earliestMoveDate(legs: { pickup_date: string | null }[]): string | null {
   const dates = legs.map((l) => l.pickup_date).filter((d): d is string => !!d).sort();
   return dates[0] ?? null;
 }

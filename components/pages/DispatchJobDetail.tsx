@@ -22,8 +22,9 @@ import {
   updateAllocationTermsAction,
 } from "@/app/(staff)/dispatch/actions";
 import { cancelBookingAction, assignQuoteAction } from "@/app/(staff)/quotes/actions";
-import { JourneyLegDetail, type JourneyLeg } from "@/components/pages/JourneyLegDetail";
-import { EditBookingButton, type EditableLeg } from "@/components/pages/EditBookingButton";
+import { MoveDetailCard, type MoveLeg } from "@/components/pages/MoveDetailCard";
+import { pickMoveDetails } from "@/lib/moveDetails";
+import { EditBookingButton, type EditableMove } from "@/components/pages/EditBookingButton";
 import { BookingEditHistory, type BookingEditRecord } from "@/components/pages/BookingEditHistory";
 import { RejectionHistory, type JobRejectionRecord } from "@/components/pages/RejectionHistory";
 import type { AssignableUser } from "@/components/pages/LeadDetailPage";
@@ -34,11 +35,11 @@ export type { JobRejectionRecord };
 import { formatDateTime, formatDateAndTime } from "@/lib/formatDate";
 import type { JobOfferStatus, JobStatus, JobSupplierInvoice, SupplierPaymentStatus, QuoteStatus } from "@/lib/supabase/database.types";
 import type { SupplierOption } from "@/components/pages/DispatchBoard";
-import type { RouteDistance } from "@/lib/tripDistance";
+import type { RouteDistance } from "@/lib/moveDistance";
 import { SendEmailButton } from "@/components/ui/SendEmailButton";
 import { WhatsAppLink } from "@/components/ui/WhatsAppLink";
 
-type DispatchLeg = JourneyLeg & { id: string };
+type DispatchLeg = MoveLeg & { id: string };
 
 const CANCELLABLE_STATUSES: QuoteStatus[] = ["accepted", "partially_paid", "paid"];
 
@@ -211,7 +212,7 @@ function AllocationCard({
     startTransition(async () => {
       try {
         await cancelAllocationAction(allocation.id);
-        notify("Allocation cancelled — its legs are available again");
+        notify("Allocation cancelled — the move is available to allocate again");
         setCancelOpen(false);
         router.refresh();
       } catch (err) {
@@ -264,16 +265,16 @@ function AllocationCard({
   function removeLeg(legId: string) {
     const remaining = legs.filter((l) => l.id !== legId).map((l) => l.id);
     if (remaining.length === 0) {
-      notify("An allocation needs at least one leg — cancel it instead.");
+      notify("An allocation needs the move — cancel it instead.");
       return;
     }
     startTransition(async () => {
       try {
         await editAllocationLegsAction(allocation.id, remaining);
-        notify("Leg removed from this allocation");
+        notify("Move removed from this allocation");
         router.refresh();
       } catch (err) {
-        notify(err instanceof Error ? err.message : "Could not update this allocation's legs.");
+        notify(err instanceof Error ? err.message : "Could not update this allocation.");
       }
     });
   }
@@ -299,7 +300,7 @@ function AllocationCard({
             onClick={() => setEditingLegs((v) => !v)}
             className="text-xs font-bold text-primary-600 hover:underline"
           >
-            {editingLegs ? "Done editing legs" : "Edit legs"}
+            {editingLegs ? "Done editing" : "Edit move"}
           </button>
           {editingLegs && (
             <div className="mt-2 space-y-1">
@@ -313,7 +314,7 @@ function AllocationCard({
                     onClick={() => removeLeg(l.id)}
                     disabled={pending}
                     className="rounded-lg p-1 text-red-500 hover:bg-red-50"
-                    aria-label="Remove leg from this allocation"
+                    aria-label="Remove the move from this allocation"
                   >
                     <X size={14} />
                   </button>
@@ -545,7 +546,7 @@ function AllocationCard({
         pending={pending}
         error={modalError}
         details={[
-          { label: "Legs", value: legRouteSummary(legs) },
+          { label: "Move", value: legRouteSummary(legs) },
           { label: "Suppliers", value: selectedNames.join(", ") || "—" },
         ]}
         confirmLabel="Send offers"
@@ -566,7 +567,7 @@ function AllocationCard({
         open={cancelOpen}
         onClose={() => !pending && setCancelOpen(false)}
         title="Cancel this allocation?"
-        description="Its legs become available again to add to a new or different allocation."
+        description="The move becomes available again to add to a new or different allocation."
         pending={pending}
         error={modalError}
         destructive
@@ -652,17 +653,19 @@ export function DispatchJobDetail({
   const customer = job.quotes?.customers;
   const currency = job.quotes?.currency ?? BRAND.defaultCurrency;
 
-  const editableLegs: EditableLeg[] = legs.map((l) => ({
-    id: l.id,
-    sequence: l.sequence,
-    pickupAddress: l.pickup_address,
-    destinationAddress: l.destination_address,
-    pickupDate: l.pickup_date,
-    pickupTime: l.pickup_time,
-    passengerCount: l.passenger_count,
-    luggageCount: l.luggage_count,
-    specialRequirements: l.special_requirements,
-  }));
+  const move = legs[0] ?? null;
+  const editableMove: EditableMove | null = move
+    ? {
+        id: move.id,
+        pickupAddress: move.pickup_address,
+        destinationAddress: move.destination_address,
+        pickupDate: move.pickup_date,
+        pickupTime: move.pickup_time,
+        vanSize: move.van_size,
+        moveDetails: pickMoveDetails(move),
+        specialRequirements: move.special_requirements,
+      }
+    : null;
 
   const claimedLegIds = useMemo(
     () => new Set(allocations.flatMap((a) => a.job_allocation_legs.map((l) => l.enquiry_leg_id))),
@@ -732,7 +735,7 @@ export function DispatchJobDetail({
   function createAllocation() {
     setCreateError(null);
     if (selectedLegIds.length === 0) {
-      setCreateError("Select at least one leg.");
+      setCreateError("Select the move to allocate.");
       return;
     }
     startTransition(async () => {
@@ -763,7 +766,7 @@ export function DispatchJobDetail({
         <div className="space-y-5 lg:col-span-2">
           <Panel>
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <SectionTitle title="Journey" sub={legs.length > 1 ? `${legs.length} legs` : "Pickup, destination and passenger details"} />
+              <SectionTitle title="Move" sub="Addresses, date and move details" />
               <div className="flex shrink-0 flex-wrap gap-2">
                 {job.quotes && (
                   <EditBookingButton
@@ -772,7 +775,7 @@ export function DispatchJobDetail({
                     jobStatus={job.status}
                     currency={currency}
                     canEdit={canEditBooking}
-                    legs={editableLegs}
+                    move={editableMove}
                     className="rounded-xl border px-3 py-1.5 text-xs font-bold"
                   />
                 )}
@@ -806,7 +809,7 @@ export function DispatchJobDetail({
               </div>
             )}
             <div className="mt-4">
-              {legs.map((leg, i) => {
+              {legs.map((leg) => {
                 const claimed = claimedLegIds.has(leg.id);
                 const owningAllocation = allocations.find((a) => a.job_allocation_legs.some((l) => l.enquiry_leg_id === leg.id));
                 return (
@@ -827,11 +830,11 @@ export function DispatchJobDetail({
                         )}
                       </label>
                     </div>
-                    <JourneyLegDetail leg={leg} index={i} total={legs.length} distance={legDistances[leg.id]} />
+                    <MoveDetailCard leg={leg} distance={legDistances[leg.id]} />
                   </div>
                 );
               })}
-              {legs.length === 0 && <p className="text-sm text-slate-500">No journey details recorded.</p>}
+              {legs.length === 0 && <p className="text-sm text-slate-500">No move details recorded.</p>}
             </div>
             <dl className="mt-4 flex flex-col gap-3 rounded-2xl bg-slate-50 p-4 text-sm sm:grid sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3">
               <div>
@@ -854,13 +857,13 @@ export function DispatchJobDetail({
             {canDispatchJobs && selectedLegIds.length > 0 && (
               <div className="mt-4 rounded-2xl border p-4">
                 <div className="text-xs font-black uppercase tracking-wide text-primary-500">
-                  Create allocation from {selectedLegIds.length} selected leg{selectedLegIds.length === 1 ? "" : "s"}
+                  Create allocation for this move
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <input
                     value={vehicleNotes}
                     onChange={(e) => setVehicleNotes(e.target.value)}
-                    placeholder="Vehicle notes (optional)"
+                    placeholder="Van & crew notes (optional)"
                     className="rounded-lg border px-3 py-2 text-sm"
                   />
                   <input
@@ -898,7 +901,7 @@ export function DispatchJobDetail({
           <Panel>
             <SectionTitle
               title={`Allocations (${allocations.length})`}
-              sub="Each allocation covers one or more legs assigned to a single supplier"
+              sub="Each allocation assigns the move to a single supplier"
             />
             <div className="mt-3 space-y-4">
               {allocations.map((allocation) => (

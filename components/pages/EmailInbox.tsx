@@ -8,7 +8,8 @@ import {
   ArchiveRestore,
   ArrowLeft,
   ArrowRight,
-  Bus,
+  Home,
+  Truck,
   CalendarDays,
   ChevronDown,
   ChevronRight,
@@ -26,7 +27,6 @@ import {
   Search,
   Send,
   Star,
-  Users,
   X,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
@@ -91,7 +91,7 @@ function matchesView(c: EmailConversation, view: View): boolean {
   }
 }
 
-/** The coloured chip on a conversation — what stage of the customer journey it's at. */
+/** The coloured chip on a conversation — what stage of the customer move it's at. */
 function crmTag(ctx: EmailCrmContext): { label: string; className: string } | null {
   const status = ctx.quote?.status;
   if (status && FOLLOW_UP.has(status)) return { label: "Quote follow-up", className: "bg-amber-50 text-amber-700 ring-amber-200" };
@@ -179,7 +179,7 @@ function money(amount: number, currency: string) {
   }
 }
 
-function tripDate(date: string | null, time: string | null) {
+function moveDate(date: string | null, time: string | null) {
   if (!date) return "Date to be confirmed";
   const d = new Date(`${date}T00:00:00`);
   const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
@@ -815,10 +815,10 @@ function Conversation({
             className="mt-4 block rounded-xl border-l-4 border-primary-400 bg-primary-50/50 px-4 py-3 text-xs transition hover:bg-primary-50"
           >
             <div className="font-bold text-slate-800">Linked quotation · {ctx.quote.quote_number}</div>
-            {ctx.trip && (
+            {ctx.move && (
               <div className="mt-1 text-slate-500">
-                {ctx.trip.pickup} → {ctx.trip.destination}
-                {ctx.trip.passengers != null && <> · {ctx.trip.passengers} passengers</>}
+                {ctx.move.pickup} → {ctx.move.destination}
+                {ctx.move.moveType && <> · {ctx.move.moveType}</>}
               </div>
             )}
             <div className="mt-1 font-semibold text-slate-700">
@@ -929,7 +929,7 @@ function AddressField({ label, value, onChange }: { label: string; value: string
 }
 
 function CrmPanel({ context, mounted, onClose }: { context: EmailCrmContext; mounted: boolean; onClose?: () => void }) {
-  const { quote, trip, customer, supplier, events } = context;
+  const { quote, move, customer, supplier, events } = context;
   return (
     <div className="p-5">
       <div className="flex items-center justify-between">
@@ -978,25 +978,24 @@ function CrmPanel({ context, mounted, onClose }: { context: EmailCrmContext; mou
             )}
           </div>
 
-          {trip && (
+          {move && (
             <>
-              <PanelLabel>Trip details</PanelLabel>
+              <PanelLabel>Move details</PanelLabel>
               <dl className="space-y-3.5">
                 <Detail icon={<MapPin size={14} />} label="Route">
-                  {trip.pickup} → {trip.destination}
-                  {trip.legCount > 1 && <span className="text-slate-400"> ({trip.legCount} legs)</span>}
+                  {move.pickup} → {move.destination}
                 </Detail>
-                <Detail icon={<CalendarDays size={14} />} label="Travel date">
-                  {tripDate(trip.date, trip.time)}
+                <Detail icon={<CalendarDays size={14} />} label="Move date">
+                  {moveDate(move.date, move.time)}
                 </Detail>
-                {trip.passengers != null && (
-                  <Detail icon={<Users size={14} />} label="Passengers">
-                    {trip.passengers} passengers
+                {move.moveType && (
+                  <Detail icon={<Home size={14} />} label="Move type">
+                    {move.moveType}
                   </Detail>
                 )}
-                {trip.vehicle && (
-                  <Detail icon={<Bus size={14} />} label="Vehicle">
-                    {trip.vehicle}
+                {move.vanSize && (
+                  <Detail icon={<Truck size={14} />} label="Van size">
+                    {move.vanSize}
                   </Detail>
                 )}
                 {quote.expiry_at && (

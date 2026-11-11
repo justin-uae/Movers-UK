@@ -74,7 +74,7 @@ export function TasksDiagram() {
         </Text>
         <LabelPill x={COL_W - 36} y={-6} h={14} anchor="end" fill="#fffbeb" textFill="#b45309" label="Med" size={6.5} padX={6} />
         <Text x={0} y={38} size={7.5} fill={MUTED}>
-          Linked: City Transfers LLC
+          Linked: City Removals LLC
         </Text>
         <Text x={0} y={50} size={7.5} fill={MUTED}>
           18 Sep

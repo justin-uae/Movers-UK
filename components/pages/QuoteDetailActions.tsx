@@ -11,7 +11,7 @@ import {
   cancelBookingAction,
   processRefundAction,
 } from "@/app/(staff)/quotes/actions";
-import { EditBookingButton, type EditableLeg } from "@/components/pages/EditBookingButton";
+import { EditBookingButton, type EditableMove } from "@/components/pages/EditBookingButton";
 import { formatDateTime } from "@/lib/formatDate";
 import type { QuoteStatus, JobStatus, Refund } from "@/lib/supabase/database.types";
 
@@ -36,7 +36,7 @@ interface QuoteSummary {
   sellingPrice: number | null;
 }
 
-export type AmendableLeg = EditableLeg;
+export type AmendableMove = EditableMove;
 
 function money(amount: number | null, currency: string) {
   if (amount === null) return "—";
@@ -47,7 +47,7 @@ const EMAILABLE: QuoteStatus[] = ["sent", "viewed", "accepted", "partially_paid"
 const CANCELLABLE: QuoteStatus[] = ["accepted", "partially_paid", "paid"];
 // Dead-end statuses — the quote itself can't go any further, but the
 // underlying enquiry is still perfectly requotable (e.g. rejected as "too
-// expensive" just needs a fresh, cheaper quote against the same journey).
+// expensive" just needs a fresh, cheaper quote against the same move).
 const REQUOTABLE: QuoteStatus[] = ["rejected", "expired", "cancelled"];
 
 /**
@@ -64,7 +64,7 @@ export function QuoteDetailActions({
   canAmend,
   canCreateQuote,
   enquiryId,
-  legs,
+  move,
   jobStatus,
   refunds,
 }: {
@@ -74,7 +74,7 @@ export function QuoteDetailActions({
   canAmend: boolean;
   canCreateQuote: boolean;
   enquiryId: string | null;
-  legs: AmendableLeg[];
+  move: AmendableMove | null;
   jobStatus: JobStatus | null;
   refunds: QuoteRefund[];
 }) {
@@ -202,7 +202,7 @@ export function QuoteDetailActions({
         jobStatus={jobStatus}
         currency={quote.currency}
         canEdit={canAmend}
-        legs={legs}
+        move={move}
       />
       {canCancel && CANCELLABLE.includes(quote.status) && (
         <button

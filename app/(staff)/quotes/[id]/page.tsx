@@ -10,16 +10,17 @@ import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { BackLink } from "@/components/ui/BackLink";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { RichText } from "@/components/ui/RichText";
-import { QuoteDetailActions, type AmendableLeg, type QuoteRefund } from "@/components/pages/QuoteDetailActions";
+import { QuoteDetailActions, type AmendableMove, type QuoteRefund } from "@/components/pages/QuoteDetailActions";
 import { AssignQuoteButton } from "@/components/pages/AssignQuoteButton";
 import { RequestCardPaymentButton } from "@/components/pages/RequestCardPaymentButton";
 import { BookingEditHistory, type BookingEditRecord } from "@/components/pages/BookingEditHistory";
-import { JourneyLegDetail, type JourneyLeg } from "@/components/pages/JourneyLegDetail";
+import { MoveDetailCard, type MoveLeg } from "@/components/pages/MoveDetailCard";
+import { pickMoveDetails } from "@/lib/moveDetails";
 import { formatDateTime, formatDate } from "@/lib/formatDate";
 import type { QuoteStatus, QuoteEventType, QuoteDecisionType, CustomerPaymentMethod, JobStatus } from "@/lib/supabase/database.types";
 import { QUOTE_STATUS_LABEL, QUOTE_STATUS_STYLE, QUOTE_EVENT_LABEL } from "@/lib/quoteStatus";
 import { getAiModelLabel } from "@/lib/aiProviderRegistry";
-import { legRouteDistances } from "@/lib/tripDistance";
+import { moveRouteDistances } from "@/lib/moveDistance";
 import { SendEmailButton } from "@/components/ui/SendEmailButton";
 import { QuoteRemindersPanel, type QuoteReminderRow } from "@/components/pages/QuoteRemindersPanel";
 import { QuoteExpiryEditor } from "@/components/pages/QuoteExpiryEditor";
@@ -41,7 +42,7 @@ interface LineItemRow {
 interface VersionRow {
   id: string;
   version_number: number;
-  vehicle_description: string | null;
+  van_size: string | null;
   supplier_estimated_cost: number | null;
   selling_price: number;
   /** Special Deal (0114_special_deals.sql) — the struck-through pre-deal price. */
@@ -95,7 +96,7 @@ interface QuoteDetailRow {
   ai_generated: boolean;
   ai_model: { provider: string; model: string } | null;
   customers: { id: string; company_name: string | null; contact_name: string; phone: string | null; whatsapp: string | null; email: string | null; reminders_opted_out_at: string | null } | null;
-  enquiries: { id: string; lead_id: string | null; assigned_user_id: string | null; enquiry_legs: (JourneyLeg & { id: string })[] } | null;
+  enquiries: { id: string; lead_id: string | null; assigned_user_id: string | null; enquiry_legs: (MoveLeg & { id: string })[] } | null;
   quote_versions: VersionRow[];
   quote_events: { event: QuoteEventType; detail: string | null; created_at: string }[];
   quote_decisions: { decision: QuoteDecisionType; reason: string | null; free_text: string | null; decided_at: string }[];
@@ -138,7 +139,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
   const { data: quoteRaw, error: quoteError } = await supabase
     .from("quotes")
     .select(
-      "id, quote_number, status, currency, expiry_at, invoice_number, invoiced_at, public_token, created_at, sent_at, viewed_at, decided_at, cancellation_reason, cancelled_by, cancelled_by_profile:profiles!quotes_cancelled_by_fkey(full_name), created_by, created_by_profile:profiles!quotes_created_by_fkey(full_name), ai_generated, ai_model, customers(id, company_name, contact_name, phone, whatsapp, email, reminders_opted_out_at), enquiries(id, lead_id, assigned_user_id, enquiry_legs(id, sequence, journey_type, pickup_address, destination_address, via_points, pickup_date, pickup_time, return_date, return_time, passenger_count, luggage_count, wheelchair_required, child_seats, special_requirements, vehicle_types(name))), quote_versions!quote_versions_quote_id_fkey(id, version_number, vehicle_description, supplier_estimated_cost, selling_price, original_price, discount_percent, discount_source, vat_rate, currency, deposit_percentage, deposit_fixed_amount, payment_methods, customer_notes, terms_snapshot, created_at, quote_line_items(id, description, amount, category)), quote_events(event, detail, created_at), quote_decisions(decision, reason, free_text, decided_at), customer_payments(id, amount, method, paid_at), quote_payment_milestones(id, sequence, label, amount, due_date), reminders_paused_at, reminders_pause_reason, quote_reminders(kind, step, sent_at, error)",
+      "id, quote_number, status, currency, expiry_at, invoice_number, invoiced_at, public_token, created_at, sent_at, viewed_at, decided_at, cancellation_reason, cancelled_by, cancelled_by_profile:profiles!quotes_cancelled_by_fkey(full_name), created_by, created_by_profile:profiles!quotes_created_by_fkey(full_name), ai_generated, ai_model, customers(id, company_name, contact_name, phone, whatsapp, email, reminders_opted_out_at), enquiries(id, lead_id, assigned_user_id, enquiry_legs(id, sequence, pickup_address, destination_address, pickup_date, pickup_time, van_size, special_requirements, move_type, property_type, rooms, estimated_boxes, pickup_floor, destination_floor, lift_available, packing_needed, dismantling_needed, assembly_needed, storage_needed, fragile_items)), quote_versions!quote_versions_quote_id_fkey(id, version_number, van_size, supplier_estimated_cost, selling_price, original_price, discount_percent, discount_source, vat_rate, currency, deposit_percentage, deposit_fixed_amount, payment_methods, customer_notes, terms_snapshot, created_at, quote_line_items(id, description, amount, category)), quote_events(event, detail, created_at), quote_decisions(decision, reason, free_text, decided_at), customer_payments(id, amount, method, paid_at), quote_payment_milestones(id, sequence, label, amount, due_date), reminders_paused_at, reminders_pause_reason, quote_reminders(kind, step, sent_at, error)",
     )
     .eq("id", id)
     .single();
@@ -173,23 +174,25 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    legRouteDistances(legs),
+    moveRouteDistances(legs),
   ]);
 
   const canAmend = actor.is_master_admin || (canAmendPermission && quote.enquiries?.assigned_user_id === actor.id);
 
   const customer = quote.customers;
-  const amendableLegs: AmendableLeg[] = legs.map((l) => ({
-    id: l.id,
-    sequence: l.sequence,
-    pickupAddress: l.pickup_address,
-    destinationAddress: l.destination_address,
-    pickupDate: l.pickup_date,
-    pickupTime: l.pickup_time,
-    passengerCount: l.passenger_count,
-    luggageCount: l.luggage_count,
-    specialRequirements: l.special_requirements,
-  }));
+  const move = legs[0] ?? null;
+  const amendableMove: AmendableMove | null = move
+    ? {
+        id: move.id,
+        pickupAddress: move.pickup_address,
+        destinationAddress: move.destination_address,
+        pickupDate: move.pickup_date,
+        pickupTime: move.pickup_time,
+        vanSize: move.van_size,
+        moveDetails: pickMoveDetails(move),
+        specialRequirements: move.special_requirements,
+      }
+    : null;
   const amendments = (amendmentsRaw ?? []) as unknown as BookingEditRecord[];
   const assignedName = assignableUsers.find((u) => u.id === quote.enquiries?.assigned_user_id)?.full_name ?? null;
   const versions = [...(quote.quote_versions ?? [])].sort((a, b) => b.version_number - a.version_number);
@@ -227,16 +230,17 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
         <div className="space-y-5 lg:col-span-2">
           <Panel>
             <div className="flex items-start justify-between">
-              <SectionTitle title="Journey" sub={legs.length > 1 ? `${legs.length} legs` : "Pickup, destination and passenger details"} />
+              <SectionTitle title="Move" sub="Addresses, date and move details" />
               <span className={"rounded-full px-2.5 py-1 text-xs font-bold " + QUOTE_STATUS_STYLE[quote.status]}>
                 {QUOTE_STATUS_LABEL[quote.status]}
               </span>
             </div>
             <div className="mt-4">
-              {legs.map((leg, i) => (
-                <JourneyLegDetail key={leg.sequence} leg={leg} index={i} total={legs.length} distance={legDistances[i]} />
-              ))}
-              {legs.length === 0 && <p className="text-sm text-slate-500">No journey details recorded.</p>}
+              {move ? (
+                <MoveDetailCard leg={move} distance={legDistances[0]} />
+              ) : (
+                <p className="text-sm text-slate-500">No move details recorded.</p>
+              )}
             </div>
           </Panel>
 
@@ -244,8 +248,8 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
             <SectionTitle title="Pricing" sub="Current version details" />
             <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl bg-slate-50 p-4 text-sm">
               <div>
-                <dt className="text-xs font-bold uppercase text-slate-400">Vehicle</dt>
-                <dd className="mt-0.5 font-semibold">{currentVersion?.vehicle_description ?? "—"}</dd>
+                <dt className="text-xs font-bold uppercase text-slate-400">Van size</dt>
+                <dd className="mt-0.5 font-semibold">{currentVersion?.van_size ?? "—"}</dd>
               </div>
               <div>
                 <dt className="text-xs font-bold uppercase text-slate-400">Valid until</dt>
@@ -558,7 +562,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
                 canAmend={canAmend}
                 canCreateQuote={canCreateQuote}
                 enquiryId={quote.enquiries?.id ?? null}
-                legs={amendableLegs}
+                move={amendableMove}
                 jobStatus={jobRow?.status ?? null}
                 refunds={(refunds ?? []) as unknown as QuoteRefund[]}
               />

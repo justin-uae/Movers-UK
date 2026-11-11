@@ -138,7 +138,7 @@ export function formatTimeOnly(value: string): string {
 
 /**
  * Combines a bare `date` column with its sibling bare `time` column (this
- * app stores journey pickup/return date and time as two separate
+ * app stores move pickup/return date and time as two separate
  * timezone-naive columns, e.g. enquiry_legs.pickup_date/pickup_time) into
  * the one standard format. Falls back to the date alone if no time is set.
  */
@@ -155,8 +155,8 @@ export function timeOfDayGreeting(now: Date = new Date()): string {
 }
 
 /**
- * True once a bare journey `date` column (e.g. enquiry_legs.pickup_date) is
- * strictly in the past — for flagging a quote/job whose travel date has
+ * True once a bare move `date` column (e.g. enquiry_legs.pickup_date) is
+ * strictly in the past — for flagging a quote/job whose move date has
  * gone by while it's still sitting open (not yet paid/dispatched/completed).
  * "Today" is taken in this app's display timezone (Europe/London, see the
  * module comment above), not the server process's own local/UTC time, so a

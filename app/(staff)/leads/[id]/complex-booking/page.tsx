@@ -51,7 +51,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       <PageHead
         eyebrow="Omnichannel Lead Centre"
         title="Convert to Complex Booking"
-        text="AI reads everything already captured on this lead and builds journey legs for you to review — nothing is saved until you confirm below."
+        text="AI reads everything already captured on this lead and fills in the move details for you to review — nothing is saved until you confirm below."
         action={<BackLink fallbackHref={`/leads/${id}`} label="Back to Lead" />}
       />
       <Panel>

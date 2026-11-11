@@ -3,7 +3,7 @@ import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 import { getAssignableSalesUsers } from "@/lib/leadAssignees";
-import { legRouteDistances } from "@/lib/tripDistance";
+import { moveRouteDistances } from "@/lib/moveDistance";
 import { DispatchJobDetail, type JobDetailRow, type JobAllocationRow, type JobRejectionRecord } from "@/components/pages/DispatchJobDetail";
 import type { SupplierOption } from "@/components/pages/DispatchBoard";
 import type { BookingEditRecord } from "@/components/pages/BookingEditHistory";
@@ -17,7 +17,7 @@ export default async function DispatchJobDetailPage({ params }: { params: Promis
     supabase
       .from("jobs")
       .select(
-        "id, status, region, created_at, created_by, quotes(id, status, quote_number, currency, customers(company_name, contact_name, phone, whatsapp, email), enquiries(assigned_user_id, enquiry_legs(id, sequence, journey_type, pickup_address, destination_address, via_points, pickup_date, pickup_time, return_date, return_time, passenger_count, luggage_count, wheelchair_required, child_seats, special_requirements, vehicle_types(name))), quote_versions!quotes_current_version_id_fkey(selling_price, supplier_estimated_cost), profiles!quotes_created_by_fkey(full_name))",
+        "id, status, region, created_at, created_by, quotes(id, status, quote_number, currency, customers(company_name, contact_name, phone, whatsapp, email), enquiries(assigned_user_id, enquiry_legs(id, sequence, pickup_address, destination_address, pickup_date, pickup_time, van_size, special_requirements, move_type, property_type, rooms, estimated_boxes, pickup_floor, destination_floor, lift_available, packing_needed, dismantling_needed, assembly_needed, storage_needed, fragile_items)), quote_versions!quotes_current_version_id_fkey(selling_price, supplier_estimated_cost), profiles!quotes_created_by_fkey(full_name))",
       )
       .eq("id", id)
       .single(),
@@ -53,7 +53,7 @@ export default async function DispatchJobDetailPage({ params }: { params: Promis
   const jobLegs = jobRow.quotes?.enquiries?.enquiry_legs ?? [];
   const [assignableUsers, distances] = await Promise.all([
     canAssign ? getAssignableSalesUsers(supabase) : Promise.resolve([]),
-    legRouteDistances(jobLegs),
+    moveRouteDistances(jobLegs),
   ]);
   // Keyed by leg id — DispatchJobDetail re-sorts the legs itself.
   const legDistances = Object.fromEntries(jobLegs.map((leg, i) => [leg.id, distances[i]!]));

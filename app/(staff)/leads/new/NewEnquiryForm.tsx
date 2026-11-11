@@ -7,10 +7,12 @@ import { AddressAutocompleteField } from "@/components/ui/AddressAutocompleteFie
 import { CustomerCombobox } from "@/components/ui/CustomerCombobox";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { TimePicker } from "@/components/ui/TimePicker";
+import { MoveDetailsEditor, VanSizeSelect } from "@/components/ui/MoveDetailsEditor";
+import { moveDetailRows, NO_MOVE_DETAILS, type MoveDetails } from "@/lib/moveDetails";
 import { createEnquiryAction } from "./actions";
 import type { DuplicateCustomerMatch } from "@/lib/customerDuplicates";
 
-const STEPS = ["Customer", "Journey", "Requirements", "Review"];
+const STEPS = ["Customer", "Move", "Property & services", "Review"];
 
 interface CustomerOption {
   id: string;
@@ -20,19 +22,16 @@ interface CustomerOption {
   phone: string | null;
 }
 
-interface VehicleTypeOption {
-  id: string;
-  name: string;
-  seat_capacity: number;
+function ReviewRow({ label, value, last }: { label: string; value: React.ReactNode; last?: boolean }) {
+  return (
+    <div className={"flex flex-wrap justify-between gap-x-3 gap-y-1 py-2" + (last ? "" : " border-b")}>
+      <span className="text-slate-500">{label}</span>
+      <b className="whitespace-pre-wrap">{value}</b>
+    </div>
+  );
 }
 
-export function NewEnquiryForm({
-  customers,
-  vehicleTypes,
-}: {
-  customers: CustomerOption[];
-  vehicleTypes: VehicleTypeOption[];
-}) {
+export function NewEnquiryForm({ customers }: { customers: CustomerOption[] }) {
   const [step, setStep] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateCustomerMatch | null>(null);
@@ -44,8 +43,7 @@ export function NewEnquiryForm({
   const [pickedCustomer, setPickedCustomer] = useState<CustomerOption | null>(null);
   const [newCustomer, setNewCustomer] = useState({ contactName: "", companyName: "", email: "", phone: "" });
 
-  const [journey, setJourney] = useState({
-    type: "one_way",
+  const [move, setMove] = useState({
     pickup: "",
     pickupLat: null as number | null,
     pickupLng: null as number | null,
@@ -54,16 +52,11 @@ export function NewEnquiryForm({
     destinationLng: null as number | null,
     date: "",
     time: "",
-    returnDate: "",
-    returnTime: "",
-    passengers: 1,
-    luggage: 0,
   });
+  const [moveDetails, setMoveDetails] = useState<MoveDetails>(NO_MOVE_DETAILS);
 
   const [requirements, setRequirements] = useState({
-    vehicleTypeId: vehicleTypes[0]?.id ?? "",
-    wheelchair: false,
-    childSeats: 0,
+    vanSize: null as string | null,
     specialRequirements: "",
     internalNotes: "",
   });
@@ -83,26 +76,18 @@ export function NewEnquiryForm({
       formData.set("newPhone", newCustomer.phone);
       if (confirmDuplicate) formData.set("confirmedDuplicateCustomer", "true");
     }
-    formData.set("journeyType", journey.type);
-    formData.set("pickupAddress", journey.pickup);
-    if (journey.pickupLat != null) formData.set("pickupLat", String(journey.pickupLat));
-    if (journey.pickupLng != null) formData.set("pickupLng", String(journey.pickupLng));
-    formData.set("destinationAddress", journey.destination);
-    if (journey.destinationLat != null) formData.set("destinationLat", String(journey.destinationLat));
-    if (journey.destinationLng != null) formData.set("destinationLng", String(journey.destinationLng));
-    formData.set("pickupDate", journey.date);
-    formData.set("pickupTime", journey.time);
-    if (journey.type === "return") {
-      formData.set("returnDate", journey.returnDate);
-      formData.set("returnTime", journey.returnTime);
-    }
-    formData.set("passengerCount", String(journey.passengers));
-    formData.set("luggageCount", String(journey.luggage));
-    formData.set("vehicleTypeId", requirements.vehicleTypeId);
-    formData.set("childSeats", String(requirements.childSeats));
+    formData.set("pickupAddress", move.pickup);
+    if (move.pickupLat != null) formData.set("pickupLat", String(move.pickupLat));
+    if (move.pickupLng != null) formData.set("pickupLng", String(move.pickupLng));
+    formData.set("destinationAddress", move.destination);
+    if (move.destinationLat != null) formData.set("destinationLat", String(move.destinationLat));
+    if (move.destinationLng != null) formData.set("destinationLng", String(move.destinationLng));
+    formData.set("pickupDate", move.date);
+    formData.set("pickupTime", move.time);
+    formData.set("moveDetails", JSON.stringify(moveDetails));
+    if (requirements.vanSize) formData.set("vanSize", requirements.vanSize);
     formData.set("specialRequirements", requirements.specialRequirements);
     formData.set("internalNotes", requirements.internalNotes);
-    if (requirements.wheelchair) formData.set("wheelchairRequired", "on");
 
     startTransition(async () => {
       const result = await createEnquiryAction({ error: null }, formData);
@@ -113,6 +98,8 @@ export function NewEnquiryForm({
       if (result?.error) setError(result.error);
     });
   }
+
+  const detailRows = moveDetailRows(moveDetails);
 
   return (
     <div>
@@ -213,84 +200,37 @@ export function NewEnquiryForm({
 
         {step === 2 && (
           <div>
-            <SectionTitle title="Journey Details" sub="Enter the route, schedule and passenger requirements" />
+            <SectionTitle title="Move" sub="Where the customer is moving from and to, and when" />
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <label className="text-sm font-bold">
-                Journey type
-                <select
-                  value={journey.type}
-                  onChange={(e) => setJourney({ ...journey, type: e.target.value })}
-                  className="mt-2 w-full rounded-xl border px-3 py-3 font-normal"
-                >
-                  <option value="one_way">One way</option>
-                  <option value="return">Return</option>
-                  <option value="disposal">Disposal hire</option>
-                  <option value="multi_day">Multi-day</option>
-                </select>
-              </label>
-              <label className="text-sm font-bold">
-                Pickup date
-                <DatePicker value={journey.date} onChange={(v) => setJourney({ ...journey, date: v })} />
-              </label>
-              <label className="text-sm font-bold">
-                Pickup address
+                Moving from
                 <AddressAutocompleteField
-                  value={journey.pickup}
-                  onChange={(v) => setJourney({ ...journey, pickup: v })}
-                  onPlaceSelect={(place) =>
-                    setJourney((j) => ({ ...j, pickup: place.address, pickupLat: place.lat, pickupLng: place.lng }))
-                  }
-                  placeholder="Start typing an address, hotel or airport…"
+                  value={move.pickup}
+                  onChange={(v) => setMove({ ...move, pickup: v })}
+                  onPlaceSelect={(place) => setMove((m) => ({ ...m, pickup: place.address, pickupLat: place.lat, pickupLng: place.lng }))}
+                  placeholder="Start typing an address or postcode…"
                   className="mt-2 w-full rounded-xl border px-3 py-3 font-normal"
                 />
               </label>
               <label className="text-sm font-bold">
-                Destination
+                Moving to
                 <AddressAutocompleteField
-                  value={journey.destination}
-                  onChange={(v) => setJourney({ ...journey, destination: v })}
+                  value={move.destination}
+                  onChange={(v) => setMove({ ...move, destination: v })}
                   onPlaceSelect={(place) =>
-                    setJourney((j) => ({ ...j, destination: place.address, destinationLat: place.lat, destinationLng: place.lng }))
+                    setMove((m) => ({ ...m, destination: place.address, destinationLat: place.lat, destinationLng: place.lng }))
                   }
-                  placeholder="Start typing an address, hotel or airport…"
+                  placeholder="Start typing an address or postcode…"
                   className="mt-2 w-full rounded-xl border px-3 py-3 font-normal"
                 />
               </label>
               <label className="text-sm font-bold">
-                Pickup time
-                <TimePicker value={journey.time} onChange={(v) => setJourney({ ...journey, time: v })} />
-              </label>
-              {journey.type === "return" && (
-                <>
-                  <label className="text-sm font-bold">
-                    Return date
-                    <DatePicker value={journey.returnDate} onChange={(v) => setJourney({ ...journey, returnDate: v })} />
-                  </label>
-                  <label className="text-sm font-bold">
-                    Return time
-                    <TimePicker value={journey.returnTime} onChange={(v) => setJourney({ ...journey, returnTime: v })} />
-                  </label>
-                </>
-              )}
-              <label className="text-sm font-bold">
-                Passengers
-                <input
-                  type="number"
-                  min={1}
-                  value={journey.passengers}
-                  onChange={(e) => setJourney({ ...journey, passengers: Number(e.target.value) })}
-                  className="mt-2 w-full rounded-xl border px-3 py-3 font-normal"
-                />
+                Move date
+                <DatePicker value={move.date} onChange={(v) => setMove({ ...move, date: v })} />
               </label>
               <label className="text-sm font-bold">
-                Luggage
-                <input
-                  type="number"
-                  min={0}
-                  value={journey.luggage}
-                  onChange={(e) => setJourney({ ...journey, luggage: Number(e.target.value) })}
-                  className="mt-2 w-full rounded-xl border px-3 py-3 font-normal"
-                />
+                Start time
+                <TimePicker value={move.time} onChange={(v) => setMove({ ...move, time: v })} />
               </label>
             </div>
           </div>
@@ -298,47 +238,21 @@ export function NewEnquiryForm({
 
         {step === 3 && (
           <div>
-            <SectionTitle title="Vehicle & Additional Requirements" sub="Accessibility, child seats and special requirements" />
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <SectionTitle title="Property & Services" sub="Property size, access and the extra services needed" />
+            <div className="mt-5">
+              <MoveDetailsEditor value={moveDetails} onChange={setMoveDetails} />
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
               <label className="text-sm font-bold">
-                Vehicle requested
-                <select
-                  value={requirements.vehicleTypeId}
-                  onChange={(e) => setRequirements({ ...requirements, vehicleTypeId: e.target.value })}
-                  className="mt-2 w-full rounded-xl border px-3 py-3 font-normal"
-                >
-                  {vehicleTypes.length === 0 && <option value="">No vehicle types configured</option>}
-                  {vehicleTypes.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} · {v.seat_capacity} seats
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm font-bold">
-                Child seats
-                <input
-                  type="number"
-                  min={0}
-                  value={requirements.childSeats}
-                  onChange={(e) => setRequirements({ ...requirements, childSeats: Number(e.target.value) })}
-                  className="mt-2 w-full rounded-xl border px-3 py-3 font-normal"
-                />
-              </label>
-              <label className="flex items-center gap-2 text-sm font-bold">
-                <input
-                  type="checkbox"
-                  checked={requirements.wheelchair}
-                  onChange={(e) => setRequirements({ ...requirements, wheelchair: e.target.checked })}
-                  className="h-4 w-4"
-                />
-                Wheelchair accessible required
+                Van size
+                <VanSizeSelect value={requirements.vanSize} onChange={(v) => setRequirements({ ...requirements, vanSize: v })} />
               </label>
               <label className="text-sm font-bold md:col-span-2">
-                Special requirements
+                Inventory and access notes
                 <textarea
                   value={requirements.specialRequirements}
                   onChange={(e) => setRequirements({ ...requirements, specialRequirements: e.target.value })}
+                  placeholder="Large items, parking details, access restrictions…"
                   className="mt-2 min-h-20 w-full rounded-xl border px-3 py-3 font-normal"
                 />
               </label>
@@ -362,93 +276,34 @@ export function NewEnquiryForm({
             <div className="mt-2 space-y-2 rounded-2xl bg-slate-50 p-5 text-sm">
               {customerMode === "existing" ? (
                 <>
-                  <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b py-2">
-                    <span className="text-slate-500">Name</span>
-                    <b>{selectedCustomer?.company_name || selectedCustomer?.contact_name || "—"}</b>
-                  </div>
-                  <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-2">
-                    <span className="text-slate-500">Email</span>
-                    <b>{selectedCustomer?.email || "—"}</b>
-                  </div>
+                  <ReviewRow label="Name" value={selectedCustomer?.company_name || selectedCustomer?.contact_name || "—"} />
+                  <ReviewRow label="Email" value={selectedCustomer?.email || "—"} last />
                 </>
               ) : (
                 <>
-                  <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b py-2">
-                    <span className="text-slate-500">Contact name</span>
-                    <b>{newCustomer.contactName || "—"}</b>
-                  </div>
-                  <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b py-2">
-                    <span className="text-slate-500">Company</span>
-                    <b>{newCustomer.companyName || "—"}</b>
-                  </div>
-                  <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b py-2">
-                    <span className="text-slate-500">Email</span>
-                    <b>{newCustomer.email || "—"}</b>
-                  </div>
-                  <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-2">
-                    <span className="text-slate-500">Phone</span>
-                    <b>{newCustomer.phone || "—"}</b>
-                  </div>
+                  <ReviewRow label="Contact name" value={newCustomer.contactName || "—"} />
+                  <ReviewRow label="Company" value={newCustomer.companyName || "—"} />
+                  <ReviewRow label="Email" value={newCustomer.email || "—"} />
+                  <ReviewRow label="Phone" value={newCustomer.phone || "—"} last />
                 </>
               )}
             </div>
 
-            <div className="mt-5 text-xs font-black uppercase tracking-wide text-primary-500">Journey</div>
+            <div className="mt-5 text-xs font-black uppercase tracking-wide text-primary-500">Move</div>
             <div className="mt-2 space-y-2 rounded-2xl bg-slate-50 p-5 text-sm">
-              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b py-2">
-                <span className="text-slate-500">Journey type</span>
-                <b className="capitalize">{journey.type.replaceAll("_", " ")}</b>
-              </div>
-              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b py-2">
-                <span className="text-slate-500">Pickup</span>
-                <b>{journey.pickup || "—"}</b>
-              </div>
-              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b py-2">
-                <span className="text-slate-500">Destination</span>
-                <b>{journey.destination || "—"}</b>
-              </div>
-              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b py-2">
-                <span className="text-slate-500">Date &amp; time</span>
-                <b>{journey.date || "—"} {journey.time}</b>
-              </div>
-              {journey.type === "return" && (
-                <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b py-2">
-                  <span className="text-slate-500">Return date &amp; time</span>
-                  <b>{journey.returnDate || "—"} {journey.returnTime}</b>
-                </div>
-              )}
-              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b py-2">
-                <span className="text-slate-500">Passengers</span>
-                <b>{journey.passengers}</b>
-              </div>
-              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-2">
-                <span className="text-slate-500">Luggage</span>
-                <b>{journey.luggage}</b>
-              </div>
+              <ReviewRow label="Moving from" value={move.pickup || "—"} />
+              <ReviewRow label="Moving to" value={move.destination || "—"} />
+              <ReviewRow label="Date & time" value={`${move.date || "—"} ${move.time}`} last />
             </div>
 
-            <div className="mt-5 text-xs font-black uppercase tracking-wide text-primary-500">Requirements</div>
+            <div className="mt-5 text-xs font-black uppercase tracking-wide text-primary-500">Property & services</div>
             <div className="mt-2 space-y-2 rounded-2xl bg-slate-50 p-5 text-sm">
-              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b py-2">
-                <span className="text-slate-500">Vehicle requested</span>
-                <b>{vehicleTypes.find((v) => v.id === requirements.vehicleTypeId)?.name ?? "—"}</b>
-              </div>
-              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b py-2">
-                <span className="text-slate-500">Child seats</span>
-                <b>{requirements.childSeats}</b>
-              </div>
-              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b py-2">
-                <span className="text-slate-500">Wheelchair accessible</span>
-                <b>{requirements.wheelchair ? "Required" : "Not required"}</b>
-              </div>
-              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b py-2">
-                <span className="text-slate-500">Special requirements</span>
-                <b>{requirements.specialRequirements || "—"}</b>
-              </div>
-              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-2">
-                <span className="text-slate-500">Internal notes</span>
-                <b className="whitespace-pre-wrap">{requirements.internalNotes || "—"}</b>
-              </div>
+              {detailRows.map(({ label, value }) => (
+                <ReviewRow key={label} label={label} value={value} />
+              ))}
+              <ReviewRow label="Van size" value={requirements.vanSize ?? "Not decided yet"} />
+              <ReviewRow label="Inventory and access notes" value={requirements.specialRequirements || "—"} />
+              <ReviewRow label="Internal notes" value={requirements.internalNotes || "—"} last />
             </div>
           </div>
         )}

@@ -15,8 +15,8 @@ const DOC_TYPES: DocumentType[] = [
   "invoice",
   "receipt",
   "credit_note",
-  "itinerary",
-  "passenger_list",
+  "move_plan",
+  "inventory_list",
   "quote",
   "other",
 ];

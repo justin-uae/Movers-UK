@@ -176,7 +176,7 @@ export function EmailCentrePage({
                 heading: "Linked CRM record",
                 bullets: true,
                 body: [
-                  "The right-hand panel shows the quote the conversation is about — status, value, route, date, passengers, vehicle and the latest quote activity — with buttons to open the quote or the lead.",
+                  "The right-hand panel shows the quote the conversation is about — status, value, route, date, move type, van size and the latest quote activity — with buttons to open the quote or the lead.",
                   "The link is found automatically: a quote number (QT-…) in the subject, or the sender's address matching a customer (their latest open quote) or a supplier.",
                 ],
               },

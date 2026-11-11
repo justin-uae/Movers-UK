@@ -2,6 +2,7 @@ import "server-only";
 import { vatBreakdown, formatVatRate } from "./vat";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./supabase/database.types";
+import { moveDetailRows, type MoveDetails } from "./moveDetails";
 import {
   createPdfDocument,
   money,
@@ -40,7 +41,7 @@ interface QuoteMilestoneRow {
 }
 
 interface VersionRow {
-  vehicle_description: string | null;
+  van_size: string | null;
   selling_price: number;
   /** Special Deal (0114_special_deals.sql) — the struck-through "was" price and its % off. */
   original_price: number | null;
@@ -55,22 +56,13 @@ interface VersionRow {
   quote_line_items: QuoteLineItemRow[] | null;
 }
 
-interface LegRow {
+interface LegRow extends MoveDetails {
   sequence: number;
-  journey_type: string;
   pickup_address: string;
   destination_address: string;
-  via_points: string[] | null;
   pickup_date: string | null;
   pickup_time: string | null;
-  return_date: string | null;
-  return_time: string | null;
-  passenger_count: number | null;
-  luggage_count: number | null;
-  wheelchair_required: boolean | null;
-  child_seats: number | null;
   special_requirements: string | null;
-  vehicle_types: { name: string } | null;
 }
 
 interface QuotePdfRow {
@@ -104,20 +96,20 @@ function defaultTermsAndConditions(brandName: string, depositPercentage: number 
   const paymentClause =
     paymentClauseOverride ??
     (depositPercentage
-      ? `A deposit of ${depositPercentage}% of the total price is required to confirm this booking. The remaining balance is due no later than 48 hours before the scheduled pickup time, unless otherwise agreed in writing.`
+      ? `A deposit of ${depositPercentage}% of the total price is required to confirm this booking. The remaining balance is due no later than 48 hours before the move date, unless otherwise agreed in writing.`
       : `Full payment of the total price is required to confirm this booking.`);
 
   return [
     `1. Quote validity — This quotation is valid until the date shown above. ${brandName} reserves the right to revise pricing for any booking confirmed after this date.`,
     `2. Booking confirmation — This quotation does not constitute a confirmed booking. A booking is only confirmed once payment has been received as described below.`,
     `3. Payment — ${paymentClause} Accepted payment methods are shown on this quotation.`,
-    `4. Cancellations & refunds — Cancellations made more than 48 hours before the scheduled pickup time are eligible for a full refund of any amount paid, less any non-recoverable third-party costs already incurred. Cancellations within 48 hours of pickup are non-refundable.`,
-    `5. Changes to the journey — Changes to pickup time, location, passenger count or vehicle requirements may affect the final price and are subject to availability.`,
-    `6. Vehicle & driver — ${brandName} reserves the right to substitute the vehicle and/or driver assigned to this journey with one of equal or higher standard in the event of unforeseen circumstances.`,
-    `7. Waiting time — A reasonable waiting period is included at pickup. Additional waiting time beyond this may be charged at the standard hourly rate.`,
-    `8. Passenger & luggage limits — The passenger and luggage capacity stated on this quotation must not be exceeded. ${brandName} may decline travel or request an additional vehicle if capacity is exceeded on the day.`,
-    `9. Liability — ${brandName} carries appropriate insurance for passenger transport. Liability for loss or damage to personal belongings during the journey is limited to what is required by applicable law.`,
-    `10. Force majeure — ${brandName} is not liable for delays or cancellations caused by circumstances beyond its reasonable control, including but not limited to traffic, weather, or road closures.`,
+    `4. Cancellations & refunds — Cancellations made more than 48 hours before the move date are eligible for a full refund of any amount paid, less any non-recoverable third-party costs already incurred. Cancellations within 48 hours of the move are non-refundable.`,
+    `5. Changes to the move — Changes to the move date, addresses, inventory or services required may affect the final price and are subject to availability.`,
+    `6. Inventory & access — This quotation is based on the property size, inventory and access details provided. Additional items, restricted access, parking difficulties or extra floors not disclosed in advance may be charged extra.`,
+    `7. Packing — Items packed by the customer are the customer's responsibility. Fragile and high-value items should be declared before the move.`,
+    `8. Vehicle & crew — ${brandName} reserves the right to substitute the van and/or crew assigned to this move with one of equal or higher standard in the event of unforeseen circumstances.`,
+    `9. Liability — ${brandName} carries appropriate goods-in-transit insurance. Liability for loss or damage to belongings during the move is limited to what is required by applicable law.`,
+    `10. Force majeure — ${brandName} is not liable for delays or cancellations caused by circumstances beyond its reasonable control, including but not limited to traffic, weather, road closures or delays in key handover.`,
     `11. Queries — For any questions about this quotation, please reply to the email this quotation was sent with, quoting the reference number above.`,
   ];
 }
@@ -138,8 +130,8 @@ export async function generateQuotePdf(
     .select(
       "id, quote_number, status, currency, expiry_at, created_at, brand_id, tenant_id, " +
         "customers(company_name, contact_name, email, phone), " +
-        "enquiries(enquiry_legs(sequence, journey_type, pickup_address, destination_address, via_points, pickup_date, pickup_time, return_date, return_time, passenger_count, luggage_count, wheelchair_required, child_seats, special_requirements, vehicle_types(name))), " +
-        "quote_versions!quotes_current_version_id_fkey(vehicle_description, selling_price, original_price, discount_percent, vat_rate, deposit_percentage, deposit_fixed_amount, payment_methods, customer_notes, terms_snapshot, brand_snapshot, quote_line_items(description, amount)), " +
+        "enquiries(enquiry_legs(sequence, pickup_address, destination_address, pickup_date, pickup_time, special_requirements, move_type, property_type, rooms, estimated_boxes, pickup_floor, destination_floor, lift_available, packing_needed, dismantling_needed, assembly_needed, storage_needed, fragile_items)), " +
+        "quote_versions!quotes_current_version_id_fkey(van_size, selling_price, original_price, discount_percent, vat_rate, deposit_percentage, deposit_fixed_amount, payment_methods, customer_notes, terms_snapshot, brand_snapshot, quote_line_items(description, amount)), " +
         "quote_payment_milestones(sequence, label, amount, due_date)",
     )
     .eq("id", quoteId)
@@ -178,7 +170,7 @@ export async function generateQuotePdf(
   const brandName = brand?.name ?? "Quotation";
   const brandColor = brand?.primary_color ?? FALLBACK_COLOR;
   const customer = quote.customers;
-  const legs = [...(quote.enquiries?.enquiry_legs ?? [])].sort((a, b) => a.sequence - b.sequence);
+  const move = [...(quote.enquiries?.enquiry_legs ?? [])].sort((a, b) => a.sequence - b.sequence)[0] ?? null;
   const logoBuffer = await fetchLogoBuffer(brand?.logo_url ?? null);
 
   const built = createPdfDocument("quotePdf");
@@ -275,43 +267,21 @@ export async function generateQuotePdf(
 
   doc.y = Math.max(billY, detailY) + 20;
 
-  // ---- Travel details -------------------------------------------------------
-  sectionHeading(doc, "Travel Details", brandColor, contentWidth);
-  if (legs.length === 0) {
-    doc.font(FONT_REGULAR).fontSize(10).fillColor(MUTED).text("No journey details recorded.", PAGE_MARGIN);
-  }
-  legs.forEach((leg, i) => {
-    if (legs.length > 1) {
-      doc
-        .font(FONT_BOLD)
-        .fontSize(9)
-        .fillColor(brandColor)
-        .text(`LEG ${leg.sequence} OF ${legs.length} · ${leg.journey_type.replaceAll("_", " ").toUpperCase()}`, PAGE_MARGIN);
-      doc.moveDown(0.3);
-    }
-
+  // ---- Move details ---------------------------------------------------------
+  sectionHeading(doc, "Move Details", brandColor, contentWidth);
+  if (!move) {
+    doc.font(FONT_REGULAR).fontSize(10).fillColor(MUTED).text("No move details recorded.", PAGE_MARGIN);
+  } else {
     const rows: [string, string][] = [
-      ["Pickup", leg.pickup_address],
-      ["Destination", leg.destination_address],
+      ["Moving from", move.pickup_address],
+      ["Moving to", move.destination_address],
+      ["Move date", `${formatDate(move.pickup_date)}${move.pickup_time ? ` at ${move.pickup_time}` : ""}`],
     ];
-    if (leg.via_points && leg.via_points.length > 0) rows.push(["Via", leg.via_points.join(" → ")]);
-    rows.push(["Date & time", `${formatDate(leg.pickup_date)}${leg.pickup_time ? ` at ${leg.pickup_time}` : ""}`]);
-    if (leg.journey_type === "return" && (leg.return_date || leg.return_time)) {
-      rows.push(["Return", `${formatDate(leg.return_date)}${leg.return_time ? ` at ${leg.return_time}` : ""}`]);
-    }
-    rows.push(["Passengers", String(leg.passenger_count ?? "—")]);
-    if (leg.wheelchair_required || (leg.child_seats ?? 0) > 0) {
-      const parts = [
-        leg.wheelchair_required ? "Wheelchair required" : null,
-        (leg.child_seats ?? 0) > 0 ? `${leg.child_seats} child seat${leg.child_seats === 1 ? "" : "s"}` : null,
-      ].filter(Boolean);
-      rows.push(["Accessibility", parts.join(" · ")]);
-    }
-    if (leg.special_requirements) rows.push(["Special requirements", leg.special_requirements]);
-
+    if (version.van_size) rows.push(["Van size", version.van_size]);
+    for (const { label, value } of moveDetailRows(move)) rows.push([label, value]);
+    if (move.special_requirements) rows.push(["Inventory & access notes", move.special_requirements]);
     drawKeyValueBox(doc, rows, contentWidth);
-    if (i < legs.length - 1) doc.moveDown(0.6);
-  });
+  }
 
   doc.moveDown(1);
 
@@ -379,12 +349,12 @@ export async function generateQuotePdf(
   } else if (version.deposit_fixed_amount) {
     const balance = Math.round((version.selling_price - version.deposit_fixed_amount) * 100) / 100;
     pricingRows.push(["Deposit due now", money(version.deposit_fixed_amount, quote.currency)]);
-    pricingRows.push(["Balance (due before travel)", money(balance, quote.currency)]);
+    pricingRows.push(["Balance (due before the move)", money(balance, quote.currency)]);
   } else if (version.deposit_percentage) {
     const deposit = Math.round(version.selling_price * (version.deposit_percentage / 100) * 100) / 100;
     const balance = Math.round((version.selling_price - deposit) * 100) / 100;
     pricingRows.push([`Deposit due now (${version.deposit_percentage}%)`, money(deposit, quote.currency)]);
-    pricingRows.push(["Balance (due before travel)", money(balance, quote.currency)]);
+    pricingRows.push(["Balance (due before the move)", money(balance, quote.currency)]);
   } else {
     pricingRows.push(["Payment plan", "Full payment due to confirm"]);
   }

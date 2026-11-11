@@ -55,7 +55,7 @@ export function BusinessIntelligenceDiagram() {
       <rect x={440} y={172} width={190} height={12} rx={3} fill={PRIMARY} />
 
       <Text x={364} y={206} size={7.5} fill={MUTED}>
-        City Transfers
+        City Removals
       </Text>
       <rect x={440} y={196} width={110} height={12} rx={3} fill={PRIMARY} />
 

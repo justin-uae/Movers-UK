@@ -11,7 +11,7 @@ import {
   type LostFilterKey,
 } from "@/components/pages/BookingsLostPage";
 
-const LEAD_SORT_KEYS: LeadSortKey[] = ["travel_desc", "travel_asc"];
+const LEAD_SORT_KEYS: LeadSortKey[] = ["move_desc", "move_asc"];
 const QUOTE_SORT_KEYS: LostQuoteSortKey[] = ["decided_desc", "decided_asc", "value_desc", "value_asc"];
 const FILTER_KEYS: LostFilterKey[] = ["all", "expired_leads", "rejected", "expired_quotes", "cancelled"];
 
@@ -21,7 +21,7 @@ function time(value: string | null | undefined): number {
 
 function sortLeads(leads: ExpiredLead[], sort: LeadSortKey): ExpiredLead[] {
   const sorted = leads.slice();
-  if (sort === "travel_asc") sorted.sort((a, b) => time(a.travel_date) - time(b.travel_date));
+  if (sort === "move_asc") sorted.sort((a, b) => time(a.travel_date) - time(b.travel_date));
   else sorted.sort((a, b) => time(b.travel_date) - time(a.travel_date));
   return sorted;
 }
@@ -57,7 +57,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ l
 
   await Promise.all([healExpiredQuotes(supabase), healExpiredLeads(supabase)]);
 
-  const leadSort: LeadSortKey = (LEAD_SORT_KEYS as string[]).includes(params.leadSort ?? "") ? (params.leadSort as LeadSortKey) : "travel_desc";
+  const leadSort: LeadSortKey = (LEAD_SORT_KEYS as string[]).includes(params.leadSort ?? "") ? (params.leadSort as LeadSortKey) : "move_desc";
   const quoteSort: LostQuoteSortKey = (QUOTE_SORT_KEYS as string[]).includes(params.quoteSort ?? "")
     ? (params.quoteSort as LostQuoteSortKey)
     : "decided_desc";
@@ -66,7 +66,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ l
   const { data: expiredLeads } = await supabase
     .from("leads")
     .select(
-      "id, source, pickup_text, destination_text, travel_date, pickup_time, passenger_count, notes, created_at, customers(company_name, contact_name), profiles(full_name)",
+      "id, source, pickup_text, destination_text, travel_date, pickup_time, notes, created_at, customers(company_name, contact_name), profiles(full_name)",
     )
     .eq("status", "expired");
 

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Bus, CheckCircle2 } from "lucide-react";
+import { Truck, CheckCircle2 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { FeedbackForm } from "./FeedbackForm";
 
@@ -25,7 +25,7 @@ export default async function PublicFeedbackPage({ params }: { params: Promise<{
             className="grid h-12 w-12 place-items-center rounded-2xl text-white"
             style={{ backgroundColor: brand?.primary_color ?? "#f97316" }}
           >
-            <Bus size={26} />
+            <Truck size={26} />
           </div>
           <div className="text-lg font-black text-slate-900">{brand?.name ?? "Your feedback"}</div>
         </div>
@@ -35,7 +35,7 @@ export default async function PublicFeedbackPage({ params }: { params: Promise<{
             <div className="text-center">
               <CheckCircle2 className="mx-auto text-emerald-500" size={40} />
               <h1 className="mt-3 text-xl font-black">Thanks — feedback received</h1>
-              <p className="mt-1 text-sm text-slate-500">You&apos;ve already shared your feedback for this trip.</p>
+              <p className="mt-1 text-sm text-slate-500">You&apos;ve already shared your feedback for this move.</p>
             </div>
           ) : (
             <>

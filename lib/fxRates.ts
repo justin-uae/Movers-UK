@@ -54,7 +54,7 @@ export async function convertToGbp(amount: number, currency: string): Promise<nu
 /**
  * Converts `amount` from one currency to another via GBP as the common
  * anchor (the only rate table this source gives us) — e.g. the AI price
- * estimate tool (lib/aiPriceEstimate.ts) prices a trip in whatever currency
+ * estimate tool (lib/aiPriceEstimate.ts) prices a move in whatever currency
  * the model judges the route actually trades in (a Ghana route in GHS),
  * which can differ from the quote's own currency (priced in USD by staff) —
  * without converting, the two figures shown side by side on screen aren't

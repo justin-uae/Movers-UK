@@ -31,7 +31,7 @@ export default async function ActiveJobsPage({ searchParams }: { searchParams: P
   return (
     <SupplierJobListPage
       title="Active jobs"
-      text="Jobs you've accepted — confirm them, then mark completed once the trip is done."
+      text="Jobs you've accepted — confirm them, then mark completed once the move is done."
       jobs={(data ?? []) as JobAllocationOfferView[]}
       page={page}
       pageSize={PAGE_SIZE}

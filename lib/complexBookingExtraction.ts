@@ -2,6 +2,16 @@ import "server-only";
 import mammoth from "mammoth";
 import { createClient } from "@/lib/supabase/server";
 import { runAiStructuredTask, AI_PROVIDER_REGISTRY, type AiContentPart, type AiModelChoice } from "@/lib/aiProviders";
+import { MOVE_DETAILS_EXTRACTION_KEYS, MOVE_DETAILS_EXTRACTION_PROPERTIES, type MoveDetails } from "@/lib/moveDetails";
+
+export interface ComplexBookingMove extends MoveDetails {
+  pickup_address: string;
+  destination_address: string;
+  move_date: string | null;
+  move_time: string | null;
+  van_size: string | null;
+  special_requirements: string | null;
+}
 
 export interface ComplexBookingExtraction {
   customer: {
@@ -10,25 +20,13 @@ export interface ComplexBookingExtraction {
     email: string | null;
     phone: string | null;
   };
-  legs: Array<{
-    journey_type: "one_way" | "return" | "disposal" | "multi_day";
-    pickup_address: string;
-    destination_address: string;
-    pickup_date: string | null;
-    pickup_time: string | null;
-    return_date: string | null;
-    return_time: string | null;
-    passenger_count: number | null;
-    luggage_count: number | null;
-    vehicle_notes: string | null;
-    special_requirements: string | null;
-  }>;
+  move: ComplexBookingMove;
   internal_notes: string | null;
   /**
-   * Dot/bracket paths (e.g. "customer.email", "legs[0].pickup_date") the
-   * model guessed, inferred, or was otherwise unsure about — surfaced in the
-   * review UI as a highlight so staff know exactly what to double-check
-   * rather than treating every field as equally reliable.
+   * Dot paths (e.g. "customer.email", "move.move_date") the model guessed,
+   * inferred, or was otherwise unsure about — surfaced in the review UI as a
+   * highlight so staff know exactly what to double-check rather than
+   * treating every field as equally reliable.
    */
   uncertain_fields: string[];
 }
@@ -47,69 +45,52 @@ const EXTRACTION_SCHEMA = {
       required: ["name", "company", "email", "phone"],
       additionalProperties: false,
     },
-    legs: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          journey_type: { type: "string", enum: ["one_way", "return", "disposal", "multi_day"] },
-          pickup_address: { type: "string" },
-          destination_address: { type: "string" },
-          pickup_date: { type: ["string", "null"], description: "YYYY-MM-DD" },
-          pickup_time: { type: ["string", "null"], description: "24-hour HH:MM" },
-          return_date: { type: ["string", "null"], description: "YYYY-MM-DD, only for a return journey" },
-          return_time: { type: ["string", "null"], description: "24-hour HH:MM, only for a return journey" },
-          passenger_count: { type: ["integer", "null"] },
-          luggage_count: { type: ["integer", "null"] },
-          vehicle_notes: { type: ["string", "null"], description: "Free-text vehicle hint, e.g. '45-seat coach' — do not invent one if not mentioned" },
-          special_requirements: {
-            type: ["string", "null"],
-            description:
-              "If there's more than one distinct requirement, put each on its own line starting with \"- \" rather than running them together in one sentence.",
-          },
+    move: {
+      type: "object",
+      properties: {
+        pickup_address: { type: "string", description: "The address or postcode being moved FROM. Empty string if not given." },
+        destination_address: { type: "string", description: "The address or postcode being moved TO. Empty string if not given." },
+        move_date: { type: ["string", "null"], description: "YYYY-MM-DD" },
+        move_time: { type: ["string", "null"], description: "Preferred start time, 24-hour HH:MM" },
+        ...MOVE_DETAILS_EXTRACTION_PROPERTIES,
+        van_size: {
+          type: ["string", "null"],
+          description: "A van size the customer asked for (e.g. 'Luton van', '7.5 tonne lorry') — do not invent one if not mentioned",
         },
-        required: [
-          "journey_type",
-          "pickup_address",
-          "destination_address",
-          "pickup_date",
-          "pickup_time",
-          "return_date",
-          "return_time",
-          "passenger_count",
-          "luggage_count",
-          "vehicle_notes",
-          "special_requirements",
-        ],
-        additionalProperties: false,
+        special_requirements: {
+          type: ["string", "null"],
+          description:
+            "Inventory, large items, parking and access details. If there's more than one distinct item, put each on its own line starting with \"- \" rather than running them together in one sentence.",
+        },
       },
+      required: ["pickup_address", "destination_address", "move_date", "move_time", ...MOVE_DETAILS_EXTRACTION_KEYS, "van_size", "special_requirements"],
+      additionalProperties: false,
     },
     internal_notes: {
       type: ["string", "null"],
       description:
-        "Anything relevant that didn't fit a leg or customer field. If listing more than one distinct item, put each on its own line starting with \"- \" rather than running them together in one sentence.",
+        "Anything relevant that didn't fit the move or customer fields. If listing more than one distinct item, put each on its own line starting with \"- \" rather than running them together in one sentence.",
     },
     uncertain_fields: {
       type: "array",
       items: { type: "string" },
       description:
-        "Dot/bracket paths for fields you guessed, inferred from ambiguous wording, or are only partially " +
-        "confident about — e.g. \"customer.email\", \"legs[0].pickup_date\". Do not list fields you left null " +
+        "Dot paths for fields you guessed, inferred from ambiguous wording, or are only partially " +
+        "confident about — e.g. \"customer.email\", \"move.move_date\". Do not list fields you left null " +
         "because nothing was said — only fields you filled in but aren't sure are correct.",
     },
   },
-  required: ["customer", "legs", "internal_notes", "uncertain_fields"],
+  required: ["customer", "move", "internal_notes", "uncertain_fields"],
   additionalProperties: false,
 } as const;
 
 const SYSTEM_PROMPT =
-  "You extract structured travel itinerary data for a transport/coach-hire CRM from a pasted message, email, or an " +
-  "uploaded quote/itinerary document. The trip may span multiple days and multiple pickup/destination pairs — " +
-  "create one entry in `legs` per distinct journey segment (e.g. Day 1 airport transfer, Day 2 city tour, Day 3 " +
-  "return transfer are three separate legs), in chronological order. Only extract information that is actually " +
-  "present — never invent dates, times, passenger counts, or vehicle types that aren't stated. Use null for " +
-  "anything not mentioned. If you have to guess or infer a value from ambiguous wording rather than reading it " +
-  "directly, still fill it in but list its field path in `uncertain_fields` so a human can double-check it.";
+  "You extract structured move details for a UK removals company's CRM from a pasted message, email, or an " +
+  "uploaded inventory/quote-request document. Each booking is ONE move: the address being moved from, the address " +
+  "being moved to, and the move date. Only extract information that is actually present — never invent dates, " +
+  "addresses, property sizes, box counts or van sizes that aren't stated. Use null for anything not mentioned. If " +
+  "you have to guess or infer a value from ambiguous wording rather than reading it directly, still fill it in but " +
+  "list its field path in `uncertain_fields` so a human can double-check it.";
 
 async function downloadFileBuffer(storagePath: string): Promise<Buffer> {
   const supabase = await createClient();
@@ -127,7 +108,7 @@ export async function extractComplexBooking(input: {
   aiModel: AiModelChoice;
 }): Promise<ComplexBookingExtraction> {
   if (!input.pastedText && !input.file) {
-    throw new Error("Paste itinerary text or upload a file first.");
+    throw new Error("Paste the enquiry text or upload a file first.");
   }
 
   const content: AiContentPart[] = [];
@@ -142,7 +123,7 @@ export async function extractComplexBooking(input: {
       content.push({ type: "image", data: buffer, mimeType });
     } else if (mimeType === "application/pdf") {
       if (!AI_PROVIDER_REGISTRY[input.aiModel.provider].supportsPdf) {
-        throw new Error("The selected AI provider (Settings -> AI Models -> Complex Booking) doesn't support PDF uploads — switch provider, or upload an image/paste the itinerary text instead.");
+        throw new Error("The selected AI provider (Settings -> AI Models -> Complex Booking) doesn't support PDF uploads — switch provider, or upload an image/paste the enquiry text instead.");
       }
       const buffer = await downloadFileBuffer(storagePath);
       content.push({ type: "pdf", data: buffer, fileName });
@@ -152,7 +133,7 @@ export async function extractComplexBooking(input: {
       if (!text.trim()) throw new Error("Could not read any text from this Word document.");
       content.push({ type: "text", text });
     } else {
-      throw new Error("Unsupported file type — upload a PDF, Word (.docx) document, or an image, or paste the itinerary text instead.");
+      throw new Error("Unsupported file type — upload a PDF, Word (.docx) document, or an image, or paste the enquiry text instead.");
     }
   }
 

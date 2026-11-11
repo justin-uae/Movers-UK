@@ -17,7 +17,7 @@ const INSTANT_SOURCES: { key: InstantSource; label: string; text: string }[] = [
   {
     key: "website",
     label: "Website leads",
-    text: "The moment a website quote form is submitted. Contact-form messages with no journey aren't quoted.",
+    text: "The moment a website quote form is submitted. Contact-form messages with no move aren't quoted.",
   },
   {
     key: "email",

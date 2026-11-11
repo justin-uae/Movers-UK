@@ -6,18 +6,19 @@ import { Trash2 } from "lucide-react";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
 import { PhoneNumberField } from "@/components/ui/PhoneNumberField";
-import { updateSupplierDetailsAction, addVehicleAction, removeVehicleAction } from "../actions";
+import { updateSupplierDetailsAction, addVanAction, removeVanAction } from "../actions";
+import { VAN_SIZES } from "@/lib/supabase/database.types";
 import type { Supplier, SupplierVehicle } from "@/lib/supabase/database.types";
 
 const inputClass =
   "mt-1.5 w-full rounded-lg border px-3 py-2 text-sm font-normal outline-none focus:border-primary-300 focus:ring-2 focus:ring-primary-100 disabled:bg-slate-50";
 const labelClass = "text-xs font-bold uppercase tracking-wide text-slate-500";
 
-export function BusinessDetailsForm({ supplier, vehicles }: { supplier: Supplier; vehicles: SupplierVehicle[] }) {
+export function BusinessDetailsForm({ supplier, vans }: { supplier: Supplier; vans: SupplierVehicle[] }) {
   const notify = useToast();
   const router = useRouter();
   const [detailsError, setDetailsError] = useState<string | null>(null);
-  const [vehicleError, setVehicleError] = useState<string | null>(null);
+  const [vanError, setVanError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function saveDetails(formData: FormData) {
@@ -32,22 +33,22 @@ export function BusinessDetailsForm({ supplier, vehicles }: { supplier: Supplier
     });
   }
 
-  function addVehicle(formData: FormData) {
-    setVehicleError(null);
+  function addVan(formData: FormData) {
+    setVanError(null);
     startTransition(async () => {
-      const result = await addVehicleAction({ error: null }, formData);
+      const result = await addVanAction({ error: null }, formData);
       if (result?.error) {
-        setVehicleError(result.error);
+        setVanError(result.error);
         return;
       }
-      notify("Vehicle added");
+      notify("Van added");
       router.refresh();
     });
   }
 
-  function removeVehicle(id: string) {
+  function removeVan(id: string) {
     startTransition(async () => {
-      await removeVehicleAction(id);
+      await removeVanAction(id);
       router.refresh();
     });
   }
@@ -98,29 +99,36 @@ export function BusinessDetailsForm({ supplier, vehicles }: { supplier: Supplier
 
       <Panel className="p-4">
         <h2 className="text-sm font-black">
-          Vehicles <span className="font-normal text-slate-400">· {vehicles.length} added</span>
+          Vans <span className="font-normal text-slate-400">· {vans.length} added</span>
         </h2>
         <div className="mt-3 space-y-1.5">
-          {vehicles.map((v) => (
+          {vans.map((v) => (
             <div key={v.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
               <div>
-                <b>{v.vehicle_type}</b>
-                {v.seat_capacity && <span className="text-slate-500"> · {v.seat_capacity} seats</span>}
+                <b>{v.van_size ?? "Van"}</b>
                 {v.plate_number && <span className="text-slate-500"> · {v.plate_number}</span>}
               </div>
-              <button onClick={() => removeVehicle(v.id)} className="text-slate-400 hover:text-red-600" aria-label="Remove vehicle">
+              <button onClick={() => removeVan(v.id)} className="text-slate-400 hover:text-red-600" aria-label="Remove van">
                 <Trash2 size={14} />
               </button>
             </div>
           ))}
         </div>
-        <form action={addVehicle} className="mt-3 grid gap-2 sm:grid-cols-4">
-          <input name="vehicleType" placeholder="Vehicle type" required className="rounded-lg border px-3 py-2 text-sm sm:col-span-2" />
-          <input name="seatCapacity" type="number" min={1} placeholder="Seats" className="rounded-lg border px-3 py-2 text-sm" />
-          <input name="plateNumber" placeholder="Plate number" className="rounded-lg border px-3 py-2 text-sm" />
-          {vehicleError && <div className="sm:col-span-4 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{vehicleError}</div>}
+        <form action={addVan} className="mt-3 grid gap-2 sm:grid-cols-4">
+          <select name="vanSize" required defaultValue="" className="rounded-lg border px-3 py-2 text-sm sm:col-span-2">
+            <option value="" disabled>
+              Van size
+            </option>
+            {VAN_SIZES.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+          <input name="plateNumber" placeholder="Plate number" className="rounded-lg border px-3 py-2 text-sm sm:col-span-2" />
+          {vanError && <div className="sm:col-span-4 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{vanError}</div>}
           <button type="submit" disabled={pending} className="sm:col-span-4 w-fit rounded-lg border px-4 py-2 text-sm font-bold disabled:opacity-60">
-            Add vehicle
+            Add van
           </button>
         </form>
       </Panel>

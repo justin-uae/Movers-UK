@@ -8,7 +8,7 @@ import { Plus, FileText, Wand2 } from "lucide-react";
  * Shared "start a new lead" entry point — used from the Header's global
  * shortcut and the Leads list's own "Add Enquiry" button. Complex Booking
  * used to be its own sidebar item; it's reached from here instead now, as a
- * second option alongside the standard single-journey form, since both are
+ * second option alongside the standard manual form, since both are
  * just different ways to start the same lead-intake flow.
  */
 export function NewLeadMenu({
@@ -64,7 +64,7 @@ export function NewLeadMenu({
             <FileText size={18} className="mt-0.5 shrink-0 text-slate-500" />
             <span>
               <span className="block text-sm font-bold text-slate-900">Standard lead</span>
-              <span className="block text-xs text-slate-500">Enter one journey manually</span>
+              <span className="block text-xs text-slate-500">Enter a move manually</span>
             </span>
           </Link>
           <Link
@@ -75,7 +75,7 @@ export function NewLeadMenu({
             <Wand2 size={18} className="mt-0.5 shrink-0 text-primary-500" />
             <span>
               <span className="block text-sm font-bold text-slate-900">Complex Booking</span>
-              <span className="block text-xs text-slate-500">Paste or upload an itinerary — AI builds every leg</span>
+              <span className="block text-xs text-slate-500">Paste or upload an enquiry — AI fills in the move</span>
             </span>
           </Link>
         </div>

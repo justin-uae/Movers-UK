@@ -45,7 +45,7 @@ export function SupplierJobListPage({
                 <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusBadgeStyle(job)}`}>{statusLabel(job)}</span>
               </div>
               <div className="mt-1 text-xs text-slate-500">
-                {job.pickup_date ? formatDateAndTime(job.pickup_date, job.pickup_time) : "Date TBC"} · {job.passenger_count ?? "?"} passengers
+                {job.pickup_date ? formatDateAndTime(job.pickup_date, job.pickup_time) : "Date TBC"} · {job.move_type ?? "Move"}
               </div>
             </Link>
           ))}
@@ -57,7 +57,7 @@ export function SupplierJobListPage({
               <tr>
                 <th className="pb-3">Region</th>
                 <th>Date &amp; time</th>
-                <th>Passengers</th>
+                <th>Move type</th>
                 <th>Status</th>
                 <th></th>
               </tr>
@@ -67,7 +67,7 @@ export function SupplierJobListPage({
                 <tr key={job.offer_id} className="border-t">
                   <td className="whitespace-nowrap py-4 font-bold">{job.region ?? "Region not set"}</td>
                   <td className="min-w-[11rem]">{job.pickup_date ? formatDateAndTime(job.pickup_date, job.pickup_time) : "Date TBC"}</td>
-                  <td className="whitespace-nowrap">{job.passenger_count ?? "—"}</td>
+                  <td className="whitespace-nowrap">{job.move_type ?? "—"}</td>
                   <td className="whitespace-nowrap">
                     <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusBadgeStyle(job)}`}>{statusLabel(job)}</span>
                   </td>

@@ -21,8 +21,7 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 export interface RepriceVersion {
   id: string;
   version_number: number;
-  vehicle_type_id: string | null;
-  vehicle_description: string | null;
+  van_size: string | null;
   supplier_estimated_cost: number | null;
   selling_price: number;
   vat_rate: number;
@@ -56,7 +55,7 @@ export type DiscountSource = "special_deal" | "too_expensive_auto";
 /** The columns RepriceQuote needs — select with the client that should decide visibility. */
 export const REPRICE_QUOTE_COLUMNS =
   "id, tenant_id, quote_number, status, currency, created_by, expiry_at, quote_payment_milestones(id, sequence, amount), " +
-  "quote_versions!quotes_current_version_id_fkey(id, version_number, vehicle_type_id, vehicle_description, supplier_estimated_cost, selling_price, vat_rate, currency, deposit_percentage, deposit_fixed_amount, payment_methods, customer_notes, terms_snapshot, brand_snapshot, original_price, discount_percent, discount_source, quote_line_items(sequence, description, amount, category))";
+  "quote_versions!quotes_current_version_id_fkey(id, version_number, van_size, supplier_estimated_cost, selling_price, vat_rate, currency, deposit_percentage, deposit_fixed_amount, payment_methods, customer_notes, terms_snapshot, brand_snapshot, original_price, discount_percent, discount_source, quote_line_items(sequence, description, amount, category))";
 
 export function round2(n: number) {
   return Math.round(n * 100) / 100;
@@ -169,8 +168,7 @@ export async function saveRepricedVersion(
     .insert({
       quote_id: quote.id,
       version_number: (maxVersion?.version_number ?? version.version_number) + 1,
-      vehicle_type_id: version.vehicle_type_id,
-      vehicle_description: version.vehicle_description,
+      van_size: version.van_size,
       supplier_estimated_cost: input.supplierEstimatedCost,
       selling_price: newPrice,
       vat_rate: input.vatRate,

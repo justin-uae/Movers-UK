@@ -82,7 +82,7 @@ export async function notifyIfAutoAssigned(
   lead: { status: string; assigned_user_id: string | null },
   tenantId: string,
   brandName: string,
-  journeyVariables: Record<string, string>,
+  moveVariables: Record<string, string>,
 ) {
   if (lead.status !== "assigned" || !lead.assigned_user_id) return;
 
@@ -100,7 +100,7 @@ export async function notifyIfAutoAssigned(
       staff_name: assignee?.full_name ?? "there",
       brand_name: brandName,
       link: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/leads?tab=mine`,
-      ...journeyVariables,
+      ...moveVariables,
     },
   });
 }

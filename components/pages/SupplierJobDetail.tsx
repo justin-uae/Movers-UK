@@ -10,7 +10,7 @@ import { Panel } from "@/components/ui/Panel";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDetailModal } from "@/components/ui/ConfirmDetailModal";
-import { JourneyLegDetail } from "@/components/pages/JourneyLegDetail";
+import { MoveDetailCard } from "@/components/pages/MoveDetailCard";
 import { InvoiceUploadForm } from "@/app/supplier/dashboard/InvoiceUploadForm";
 import {
   acceptJobAllocationOfferAction,
@@ -23,7 +23,7 @@ import {
 import { statusDetailText } from "@/lib/supplierJobStatus";
 import { formatDateAndTime, formatDateTime } from "@/lib/formatDate";
 import type { JobAllocationOfferView, JobSupplierInvoice, SupplierPaymentStatus } from "@/lib/supabase/database.types";
-import type { RouteDistance } from "@/lib/tripDistance";
+import type { RouteDistance } from "@/lib/moveDistance";
 
 const PAYMENT_STATUS_STYLE: Record<SupplierPaymentStatus, string> = {
   unpaid: "bg-blue-50 text-blue-700",
@@ -177,10 +177,11 @@ export function SupplierJobDetail({
   }
 
   const rate = money(job.agreed_cost, job.quote_currency);
-  const journeyDetails = [
+  const moveDetails = [
     { label: "Region", value: job.region ?? "—" },
     { label: "Date & time", value: job.pickup_date ? formatDateAndTime(job.pickup_date, job.pickup_time) : "TBC" },
-    { label: "Passengers", value: job.passenger_count ?? "—" },
+    { label: "Move type", value: job.move_type ?? "—" },
+    { label: "Van size", value: job.van_size ?? "—" },
     ...(rate ? [{ label: "Your rate", value: rate }] : []),
   ];
 
@@ -248,23 +249,23 @@ export function SupplierJobDetail({
 
       <Panel>
         <SectionTitle
-          title="Journey"
-          sub={job.legs && job.legs.length > 1 ? "Every leg of this multi-day booking" : "Pickup, destination and passenger details"}
+          title="Move"
+          sub="Addresses, date and move details"
         />
         {job.legs && job.legs.length > 0 ? (
           <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm">
             {job.legs.map((leg, i) => (
-              <JourneyLegDetail key={i} leg={leg} index={i} total={job.legs!.length} distance={legDistances[i]} />
+              <MoveDetailCard key={i} leg={leg} distance={legDistances[i]} />
             ))}
           </div>
         ) : (
           <dl className="mt-4 flex flex-col gap-3 rounded-2xl bg-slate-50 p-4 text-sm sm:grid sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3">
             <div className="sm:col-span-2">
-              <dt className="text-xs font-bold uppercase text-slate-400">Pickup</dt>
+              <dt className="text-xs font-bold uppercase text-slate-400">Moving from</dt>
               <dd className="mt-0.5 font-semibold">{job.pickup_address ?? "—"}</dd>
             </div>
             <div className="sm:col-span-2">
-              <dt className="text-xs font-bold uppercase text-slate-400">Destination</dt>
+              <dt className="text-xs font-bold uppercase text-slate-400">Moving to</dt>
               <dd className="mt-0.5 font-semibold">{job.destination_address ?? "—"}</dd>
             </div>
             <div>
@@ -272,8 +273,8 @@ export function SupplierJobDetail({
               <dd className="mt-0.5 font-semibold">{job.pickup_date ? formatDateAndTime(job.pickup_date, job.pickup_time) : "TBC"}</dd>
             </div>
             <div>
-              <dt className="text-xs font-bold uppercase text-slate-400">Passengers</dt>
-              <dd className="mt-0.5 font-semibold">{job.passenger_count ?? "—"}</dd>
+              <dt className="text-xs font-bold uppercase text-slate-400">Van size</dt>
+              <dd className="mt-0.5 font-semibold">{job.van_size ?? "—"}</dd>
             </div>
           </dl>
         )}
@@ -337,8 +338,8 @@ export function SupplierJobDetail({
         open={modal === "accept"}
         onClose={closeModal}
         title="Accept this job?"
-        description="You're committing to carry out this journey — the office will be notified."
-        details={journeyDetails}
+        description="You're committing to carry out this move — the office will be notified."
+        details={moveDetails}
         pending={pending}
         error={modalError}
         confirmLabel="Accept job"
@@ -350,7 +351,7 @@ export function SupplierJobDetail({
         onClose={closeModal}
         title="Reject this job offer?"
         description="This offer will go back to the office so they can send it to another supplier."
-        details={journeyDetails}
+        details={moveDetails}
         pending={pending}
         error={modalError}
         destructive
@@ -365,7 +366,7 @@ export function SupplierJobDetail({
           value={rejectReason}
           onChange={(e) => setRejectReason(e.target.value)}
           rows={3}
-          placeholder="e.g. Not available on this date, vehicle already booked…"
+          placeholder="e.g. Not available on this date, van already booked…"
           className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm"
         />
       </ConfirmDetailModal>
@@ -374,8 +375,8 @@ export function SupplierJobDetail({
         open={modal === "confirm"}
         onClose={closeModal}
         title="Confirm this job?"
-        description="Confirm once you're set to carry out this journey as scheduled."
-        details={journeyDetails}
+        description="Confirm once you're set to carry out this move as scheduled."
+        details={moveDetails}
         pending={pending}
         error={modalError}
         confirmLabel="Confirm job"
@@ -387,7 +388,7 @@ export function SupplierJobDetail({
         onClose={closeModal}
         title="Mark this job as completed?"
         description="Your invoice for this job has been settled — mark it completed to close it out."
-        details={journeyDetails}
+        details={moveDetails}
         pending={pending}
         error={modalError}
         confirmLabel="Mark completed"
@@ -399,7 +400,7 @@ export function SupplierJobDetail({
         onClose={closeModal}
         title="Approve these changes?"
         description="The job carries on exactly as it already would have — nothing else changes."
-        details={journeyDetails}
+        details={moveDetails}
         pending={pending}
         error={modalError}
         confirmLabel="Approve changes"
@@ -411,7 +412,7 @@ export function SupplierJobDetail({
         onClose={closeModal}
         title="Reject this job?"
         description="It's taken off your schedule entirely and goes back to the office to offer to another supplier."
-        details={journeyDetails}
+        details={moveDetails}
         pending={pending}
         error={modalError}
         destructive

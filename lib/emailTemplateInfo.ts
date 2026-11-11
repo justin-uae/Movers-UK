@@ -49,7 +49,7 @@ export const EMAIL_TEMPLATE_INFO: Record<EmailTemplateKey, { label: string; desc
   job_offered: {
     label: "Job offered to supplier",
     description: "Sent to a supplier when a job is offered to them.",
-    variables: ["supplier_name", "brand_name", "region", "pickup_date", "pickup_time", "passenger_count", "link"],
+    variables: ["supplier_name", "brand_name", "region", "pickup_date", "pickup_time", "move_summary", "link"],
   },
   job_accepted_by_supplier: {
     label: "Job accepted by supplier",
@@ -75,9 +75,8 @@ export const EMAIL_TEMPLATE_INFO: Record<EmailTemplateKey, { label: string; desc
       "source",
       "pickup",
       "destination",
-      "travel_date",
-      "passenger_count",
-      "vehicle_requested",
+      "move_date",
+      "move_details",
       "notes",
       "link",
     ],
@@ -104,12 +103,12 @@ export const EMAIL_TEMPLATE_INFO: Record<EmailTemplateKey, { label: string; desc
   },
   booking_amended: {
     label: "Booking updated",
-    description: "Sent to the customer when staff edit an already-accepted/paid booking's journey details or price.",
+    description: "Sent to the customer when staff edit an already-accepted/paid booking's move details or price.",
     variables: ["customer_name", "quote_number", "brand_name", "reason", "changes_summary", "currency", "adjustment_amount", "new_balance", "link"],
   },
   job_amended: {
     label: "Job updated",
-    description: "Sent to the supplier when staff edit a job's journey details or their payout.",
+    description: "Sent to the supplier when staff edit a job's move details or their payout.",
     variables: ["supplier_name", "quote_number", "brand_name", "reason", "changes_summary", "payout_note", "link"],
   },
   job_reapproval_required: {
@@ -134,33 +133,33 @@ export const EMAIL_TEMPLATE_INFO: Record<EmailTemplateKey, { label: string; desc
   },
   quote_reminder_1: {
     label: "Quote reminder 1 (2 hours)",
-    description: "Automatic follow-up to the customer 2 hours after a quote is sent and not yet accepted — friendly reminder and easy booking. Shortened for trips coming up soon. Settings -> Quote Reminders.",
-    variables: ["customer_name", "quote_number", "brand_name", "travel_date", "vehicle", "pickup", "destination", "currency", "selling_price", "link", "stop_link"],
+    description: "Automatic follow-up to the customer 2 hours after a quote is sent and not yet accepted — friendly reminder and easy booking. Shortened for moves coming up soon. Settings -> Quote Reminders.",
+    variables: ["customer_name", "quote_number", "brand_name", "move_date", "van_size", "pickup", "destination", "currency", "selling_price", "link", "stop_link"],
   },
   quote_reminder_2: {
     label: "Quote reminder 2 (24 hours)",
-    description: "Automatic follow-up to the customer 24 hours after a quote is sent and not yet accepted — explains the benefits of booking and encourages a decision. Shortened for trips coming up soon. Settings -> Quote Reminders.",
-    variables: ["customer_name", "quote_number", "brand_name", "travel_date", "vehicle", "pickup", "destination", "currency", "selling_price", "link", "stop_link"],
+    description: "Automatic follow-up to the customer 24 hours after a quote is sent and not yet accepted — explains the benefits of booking and encourages a decision. Shortened for moves coming up soon. Settings -> Quote Reminders.",
+    variables: ["customer_name", "quote_number", "brand_name", "move_date", "van_size", "pickup", "destination", "currency", "selling_price", "link", "stop_link"],
   },
   quote_reminder_3: {
     label: "Quote reminder 3 (48 hours)",
-    description: "Automatic follow-up to the customer 48 hours after a quote is sent and not yet accepted — offers to review the price. Shortened for trips coming up soon. Settings -> Quote Reminders.",
-    variables: ["customer_name", "quote_number", "brand_name", "travel_date", "vehicle", "pickup", "destination", "currency", "selling_price", "link", "stop_link"],
+    description: "Automatic follow-up to the customer 48 hours after a quote is sent and not yet accepted — offers to review the price. Shortened for moves coming up soon. Settings -> Quote Reminders.",
+    variables: ["customer_name", "quote_number", "brand_name", "move_date", "van_size", "pickup", "destination", "currency", "selling_price", "link", "stop_link"],
   },
   quote_reminder_4: {
     label: "Quote reminder 4 (72 hours)",
-    description: "Automatic follow-up to the customer 72 hours after a quote is sent and not yet accepted — asks the customer to reply 1-4 with their decision. Shortened for trips coming up soon. Settings -> Quote Reminders.",
-    variables: ["customer_name", "quote_number", "brand_name", "travel_date", "vehicle", "pickup", "destination", "currency", "selling_price", "link", "stop_link"],
+    description: "Automatic follow-up to the customer 72 hours after a quote is sent and not yet accepted — asks the customer to reply 1-4 with their decision. Shortened for moves coming up soon. Settings -> Quote Reminders.",
+    variables: ["customer_name", "quote_number", "brand_name", "move_date", "van_size", "pickup", "destination", "currency", "selling_price", "link", "stop_link"],
   },
   quote_reminder_5: {
     label: "Quote reminder 5 (5 days)",
-    description: "Automatic follow-up to the customer 5 days after a quote is sent and not yet accepted — final follow-up asking for a decision. Shortened for trips coming up soon. Settings -> Quote Reminders.",
-    variables: ["customer_name", "quote_number", "brand_name", "travel_date", "vehicle", "pickup", "destination", "currency", "selling_price", "link", "stop_link"],
+    description: "Automatic follow-up to the customer 5 days after a quote is sent and not yet accepted — final follow-up asking for a decision. Shortened for moves coming up soon. Settings -> Quote Reminders.",
+    variables: ["customer_name", "quote_number", "brand_name", "move_date", "van_size", "pickup", "destination", "currency", "selling_price", "link", "stop_link"],
   },
   quote_payment_reminder: {
     label: "Payment reminder",
     description: "Automatic reminder (1, 3 and 5 days after acceptance) to a customer who accepted a quote but hasn't paid yet, with their secure payment link. Settings -> Quote Reminders.",
-    variables: ["customer_name", "quote_number", "brand_name", "travel_date", "currency", "amount_due", "link", "stop_link"],
+    variables: ["customer_name", "quote_number", "brand_name", "move_date", "currency", "amount_due", "link", "stop_link"],
   },
   quote_accepted_customer: {
     label: "Booking confirmed (to customer)",

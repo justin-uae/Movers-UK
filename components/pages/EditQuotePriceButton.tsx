@@ -152,7 +152,7 @@ export function EditQuotePriceButton({
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 className="mt-1 min-h-16 w-full rounded-xl border px-3 py-2 font-normal"
-                placeholder="e.g. Customer negotiated, supplier price changed, vehicle upgraded"
+                placeholder="e.g. Customer negotiated, supplier price changed, larger van needed"
               />
             </label>
 

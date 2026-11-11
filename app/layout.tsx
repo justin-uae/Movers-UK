@@ -17,8 +17,8 @@ export const metadata: Metadata = {
 // Without this, mobile browsers render the page at a virtual desktop width
 // (~980px) and scale the whole thing down to fit the screen — every sm:/md:
 // breakpoint then evaluates against that fake width instead of the real
-// device width, so two-column layouts (e.g. JourneyLegDetail's Pickup/
-// Destination and Passengers/Date rows) incorrectly render side-by-side and
+// device width, so two-column layouts (e.g. MoveDetailCard's Pickup/
+// Destination and Date/Van size rows) incorrectly render side-by-side and
 // cramped even on an actual phone.
 export const viewport: Viewport = {
   width: "device-width",

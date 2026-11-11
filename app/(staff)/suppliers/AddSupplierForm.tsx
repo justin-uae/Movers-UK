@@ -80,7 +80,7 @@ export function AddSupplierForm() {
         <label className="text-sm font-bold">
           Type
           <select name="type" className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal">
-            <option value="company">Company / travel agency</option>
+            <option value="company">Company / removals firm</option>
             <option value="individual">Individual driver</option>
           </select>
         </label>

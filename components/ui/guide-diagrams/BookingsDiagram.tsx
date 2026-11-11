@@ -77,7 +77,7 @@ export function BookingsDiagram({ active }: { active: Tab }) {
               £1,250
             </Text>
             <Text x={0} y={54} size={8} fill={MUTED}>
-              Assigned to City Transfers LLC
+              Assigned to City Removals LLC
             </Text>
             <LabelPill x={0} y={62} h={20} anchor="start" fill="#ffffff" stroke={LINE} textFill="#475569" label="View job" size={8} padX={10} />
           </Card>
@@ -159,7 +159,7 @@ export function BookingsDiagram({ active }: { active: Tab }) {
             </Text>
             <LabelPill x={608} y={-4} h={18} anchor="end" fill="#f0fdf4" textFill="#16a34a" label="Completed" size={7.5} padX={9} />
             <Text x={0} y={40} size={8.5} fill="#475569">
-              Supplier: City Transfers LLC
+              Supplier: City Removals LLC
             </Text>
             <Text x={608} y={40} size={9} weight={800} anchor="end">
               £1,100

@@ -13,7 +13,7 @@ function isoDate(d: Date) {
 /**
  * "Re-open Quote" on an expired quote (see reopenExpiredQuoteAction): pick a
  * new valid-until date, and either email it straight away or leave it to edit
- * the price/journey first and send it afterwards with Resend Quote Email.
+ * the price/move first and send it afterwards with Resend Quote Email.
  */
 export function ReopenQuoteButton({
   quoteId,
@@ -63,7 +63,7 @@ export function ReopenQuoteButton({
           open
           onClose={() => !pending && setOpen(false)}
           title="Re-open this expired quote?"
-          description="It goes back to the customer as an open quote with a new valid-until date. Once it's re-opened you can edit the price, give a Today's Special Deal, or change the journey."
+          description="It goes back to the customer as an open quote with a new valid-until date. Once it's re-opened you can edit the price, give a Today's Special Deal, or change the move."
           details={[
             { label: "Quote", value: quoteNumber },
             { label: "Customer", value: customerLabel },
@@ -87,7 +87,7 @@ export function ReopenQuoteButton({
             <span>
               <span className="block font-bold">Email the quote to the customer now</span>
               <span className="block text-slate-500">
-                Leave this off if you want to change the price or journey first — then send it with <b>Resend Quote Email</b>.
+                Leave this off if you want to change the price or move first — then send it with <b>Resend Quote Email</b>.
               </span>
             </span>
           </label>
