@@ -92,28 +92,6 @@ interface BankAccountRow {
   payment_notes: string | null;
 }
 
-function defaultTermsAndConditions(brandName: string, depositPercentage: number | null, paymentClauseOverride?: string): string[] {
-  const paymentClause =
-    paymentClauseOverride ??
-    (depositPercentage
-      ? `A deposit of ${depositPercentage}% of the total price is required to confirm this booking. The remaining balance is due no later than 48 hours before the move date, unless otherwise agreed in writing.`
-      : `Full payment of the total price is required to confirm this booking.`);
-
-  return [
-    `1. Quote validity — This quotation is valid until the date shown above. ${brandName} reserves the right to revise pricing for any booking confirmed after this date.`,
-    `2. Booking confirmation — This quotation does not constitute a confirmed booking. A booking is only confirmed once payment has been received as described below.`,
-    `3. Payment — ${paymentClause} Accepted payment methods are shown on this quotation.`,
-    `4. Cancellations & refunds — Cancellations made more than 48 hours before the move date are eligible for a full refund of any amount paid, less any non-recoverable third-party costs already incurred. Cancellations within 48 hours of the move are non-refundable.`,
-    `5. Changes to the move — Changes to the move date, addresses, inventory or services required may affect the final price and are subject to availability.`,
-    `6. Inventory & access — This quotation is based on the property size, inventory and access details provided. Additional items, restricted access, parking difficulties or extra floors not disclosed in advance may be charged extra.`,
-    `7. Packing — Items packed by the customer are the customer's responsibility. Fragile and high-value items should be declared before the move.`,
-    `8. Vehicle & crew — ${brandName} reserves the right to substitute the van and/or crew assigned to this move with one of equal or higher standard in the event of unforeseen circumstances.`,
-    `9. Liability — ${brandName} carries appropriate goods-in-transit insurance. Liability for loss or damage to belongings during the move is limited to what is required by applicable law.`,
-    `10. Force majeure — ${brandName} is not liable for delays or cancellations caused by circumstances beyond its reasonable control, including but not limited to traffic, weather, road closures or delays in key handover.`,
-    `11. Queries — For any questions about this quotation, please reply to the email this quotation was sent with, quoting the reference number above.`,
-  ];
-}
-
 /**
  * Builds a branded PDF for a quote — attached to the "quote sent" email
  * (see createQuoteAction / resendQuoteEmailAction) so the customer has a
@@ -422,22 +400,14 @@ export async function generateQuotePdf(
   doc.moveDown(0.7);
 
   // ---- Terms & conditions -----------------------------------------------------
-  sectionHeading(doc, "Terms & Conditions", brandColor, contentWidth);
-  const paymentClauseOverride =
-    milestones.length > 0
-      ? `Payment is due according to the schedule shown above — one milestone at a time, in order. Each instalment must be received by its due date to keep this booking confirmed, unless otherwise agreed in writing.`
-      : version.deposit_fixed_amount
-        ? `A deposit of ${money(version.deposit_fixed_amount, quote.currency)} is required to confirm this booking. The remaining balance is due no later than 48 hours before the scheduled pickup time, unless otherwise agreed in writing.`
-        : undefined;
-  const terms = version.terms_snapshot?.trim()
-    ? [version.terms_snapshot.trim()]
-    : tenantRow?.terms_and_conditions?.trim()
-      ? [tenantRow.terms_and_conditions.trim()]
-      : defaultTermsAndConditions(brandName, version.deposit_percentage, paymentClauseOverride);
-  doc.font(FONT_REGULAR).fontSize(9).fillColor(MUTED);
-  for (const clause of terms) {
-    doc.text(sanitizePdfText(clause), PAGE_MARGIN, doc.y, { width: contentWidth, align: "left" });
-    doc.moveDown(0.5);
+  // Per-quote override, else the tenant-wide text from Settings -> Bank
+  // Details & Terms. No hardcoded fallback — same as the invoice PDF and the
+  // public quote page, so all three always show the same terms.
+  const terms = version.terms_snapshot?.trim() || tenantRow?.terms_and_conditions?.trim();
+  if (terms) {
+    sectionHeading(doc, "Terms & Conditions", brandColor, contentWidth);
+    doc.font(FONT_REGULAR).fontSize(9).fillColor(MUTED);
+    doc.text(sanitizePdfText(terms), PAGE_MARGIN, doc.y, { width: contentWidth, align: "left" });
   }
 
   // ---- Footer on every page ---------------------------------------------------
