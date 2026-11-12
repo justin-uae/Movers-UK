@@ -114,6 +114,49 @@ async function runOpenAiTask<T>(p: AiTaskParams): Promise<T> {
 
 const CLAUDE_MAX_TOKENS = 4096;
 
+type JsonSchemaNode = Record<string, unknown>;
+
+/** True for a `type: ["string", "null"]` property. */
+function isNullableString(node: JsonSchemaNode): boolean {
+  const t = node.type;
+  return Array.isArray(t) && t.length === 2 && t.includes("string") && t.includes("null");
+}
+
+/**
+ * Claude's strict structured outputs reject a schema with more than 16
+ * union-typed (e.g. nullable) properties — Complex Booking alone has 21.
+ * Nullable strings are the bulk of them, so for Claude only they're sent as
+ * plain strings ("" = not given) and turned back into null afterwards by
+ * restoreNullStrings; callers and the other providers see no difference.
+ */
+function claudeSchema(node: JsonSchemaNode): JsonSchemaNode {
+  if (isNullableString(node)) {
+    const description = typeof node.description === "string" ? `${node.description} ` : "";
+    return { ...node, type: "string", description: `${description}Empty string if not given.` };
+  }
+  const out: JsonSchemaNode = { ...node };
+  if (node.properties && typeof node.properties === "object") {
+    out.properties = Object.fromEntries(
+      Object.entries(node.properties as Record<string, JsonSchemaNode>).map(([k, v]) => [k, claudeSchema(v)]),
+    );
+  }
+  if (node.items && typeof node.items === "object") out.items = claudeSchema(node.items as JsonSchemaNode);
+  return out;
+}
+
+/** Reverses claudeSchema on the parsed output: "" -> null wherever the original schema allowed null. */
+function restoreNullStrings(value: unknown, node: JsonSchemaNode): unknown {
+  if (isNullableString(node)) return typeof value === "string" && value.trim() === "" ? null : value;
+  if (Array.isArray(value) && node.items) return value.map((v) => restoreNullStrings(v, node.items as JsonSchemaNode));
+  if (value && typeof value === "object" && node.properties) {
+    const props = node.properties as Record<string, JsonSchemaNode>;
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, props[k] ? restoreNullStrings(v, props[k]) : v]),
+    );
+  }
+  return value;
+}
+
 async function runAnthropicTask<T>(p: AiTaskParams): Promise<T> {
   const client = getAnthropicClient();
 
@@ -137,13 +180,13 @@ async function runAnthropicTask<T>(p: AiTaskParams): Promise<T> {
       max_tokens: CLAUDE_MAX_TOKENS,
       system: p.instructions,
       messages: [...(p.history ?? []).map((m) => ({ role: m.role, content: m.content })), { role: "user" as const, content: blocks }],
-      output_config: { format: jsonSchemaOutputFormat(p.schema as Parameters<typeof jsonSchemaOutputFormat>[0]) },
+      output_config: { format: jsonSchemaOutputFormat(claudeSchema(p.schema) as Parameters<typeof jsonSchemaOutputFormat>[0]) },
     },
     { timeout: p.timeoutMs, maxRetries: 0 },
   );
 
   if (!message.parsed_output) throw new Error(`Claude returned no parsed output for ${p.schemaName}.`);
-  return message.parsed_output as T;
+  return restoreNullStrings(message.parsed_output, p.schema) as T;
 }
 
 async function runGeminiTask<T>(p: AiTaskParams): Promise<T> {
