@@ -1,6 +1,6 @@
-# Cheap Mover CRM
+# Movers Nationwide CRM
 
-CRM for [Cheap Mover](https://www.cheapmover.co.uk) — house removals, man and
+CRM for [Movers Nationwide](https://www.moversnationwide.co.uk) — house removals, man and
 van, office relocation, packing and storage. Business name, contact details,
 logo and locale defaults (GBP, Europe/London, en-GB) all live in
 [`lib/brandConfig.ts`](lib/brandConfig.ts).
@@ -78,9 +78,9 @@ scripts/
    and invites the admin — no plaintext password is ever generated):
    ```bash
    node --env-file=.env.local scripts/bootstrap-admin.mjs \
-     --tenant "Cheap Mover CRM" \
-     --company "Cheap Mover" \
-     --brand "Cheap Mover" \
+     --tenant "Movers Nationwide CRM" \
+     --company "Movers Nationwide" \
+     --brand "Movers Nationwide" \
      --name "Your Name" \
      --email you@example.com
    ```
@@ -116,7 +116,7 @@ SMTP_HOST=smtp.sendgrid.net
 SMTP_PORT=587
 SMTP_USER=apikey                  # literally the string "apikey"
 SMTP_PASS=<your SendGrid API key>
-SMTP_FROM="Cheap Mover <bookings@cheapmover.co.uk>"
+SMTP_FROM="Movers Nationwide <bookings@moversnationwide.co.uk>"
 ```
 `SMTP_FROM`'s address must be on a domain you've completed **Domain
 Authentication** for in SendGrid (Settings → Sender Authentication), or

@@ -145,14 +145,14 @@ export function Sidebar({
         )}
       >
         {/* Full-width white header band so the logo shows in its true brand
-            colours (black + orange) — it isn't legible on the navy. */}
+            colours (navy + gold) — it isn't legible on the navy. */}
         <div className="flex h-20 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-5">
           <Link href="/dashboard" onClick={onCloseMobile} className="flex h-full min-w-0 flex-1 items-center justify-center">
             <img
               src={BRAND.logoPath}
               alt={BRAND.companyName}
-              width={900}
-              height={201}
+              width={759}
+              height={160}
               className="h-auto max-h-14 w-full object-contain"
             />
           </Link>

@@ -3,42 +3,42 @@
 // default reads from here instead of hard-coding text. Safe to import from
 // both server and client components (no secrets, no server-only imports).
 //
-// Values marked "TBC" were not published on https://www.cheapmover.co.uk/
+// Values marked "TBC" were not published on https://www.moversnationwide.co.uk/
 // at the time of rebranding — fill them in once confirmed.
 
 export const BRAND = {
   /** Trading name, shown across the UI and on customer emails. */
-  companyName: "Cheap Mover",
-  shortName: "Cheap Mover",
+  companyName: "Movers Nationwide",
+  shortName: "Movers Nationwide",
   /** Browser tab / app title. */
-  appName: "Cheap Mover CRM",
+  appName: "Movers Nationwide CRM",
   /** Small caption under the name in the sidebar and on the login page. */
   appTagline: "Enterprise CRM",
   appDescription: "CRM for house removals, man and van, office relocation, packing and storage.",
   /** Name used wherever the AI auto-quote assistant is referred to. */
-  aiAssistantName: "Cheap Mover AI",
+  aiAssistantName: "Movers Nationwide AI",
 
-  /** TBC — no legal entity name is published on the website yet. */
-  legalName: "Cheap Mover",
-  companyNumber: "TBC",
+  legalName: "Movers Nationwide Ltd",
+  /** Registered in England and Wales. */
+  companyNumber: "13187418",
   vatNumber: "TBC",
-  /** TBC — the website lists only the trading/contact address below. */
-  registeredAddress: "TBC",
-  tradingAddress: "Cameron House, West Drayton, UB7 7QG",
+  registeredAddress: "Suite 10 Northlight Parade, Nelson, Lancashire, England, BB9 5EG",
+  tradingAddress: "Suite 10 Northlight Parade, Nelson, Lancashire, BB9 5EG",
 
-  website: "https://www.cheapmover.co.uk",
-  websiteDisplay: "www.cheapmover.co.uk",
+  website: "https://www.moversnationwide.co.uk",
+  websiteDisplay: "www.moversnationwide.co.uk",
   /** Bare domain — used for example email addresses in placeholders. */
-  emailDomain: "cheapmover.co.uk",
-  contactEmail: "contact@cheapmover.co.uk",
-  phone: "0330 113 2111",
-  phoneInternational: "+44 330 113 2111",
-  whatsapp: "+44 330 113 2111",
+  emailDomain: "moversnationwide.co.uk",
+  contactEmail: "contact@moversnationwide.co.uk",
+  phone: "0330 113 2496",
+  phoneInternational: "+44 330 113 2496",
+  whatsapp: "+44 7739 533807",
 
   /** Footer line on every outbound template email (lib/emailBranding.ts). */
-  emailFooterText: "Cheap Mover · Cameron House, West Drayton, UB7 7QG · 0330 113 2111 · contact@cheapmover.co.uk",
+  emailFooterText: "Movers Nationwide Ltd · Suite 10 Northlight Parade, Nelson, BB9 5EG · 0330 113 2496 · contact@moversnationwide.co.uk",
 
-  logoPath: "/images/cheapmover-logo.webp",
+  /** Navy + gold horizontal logo from moversnationwide.co.uk (759x160). */
+  logoPath: "/images/movers-nationwide-logo.svg",
   colors: {
     primary: "#f97316",
     primaryDark: "#ea580c",

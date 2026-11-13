@@ -5,9 +5,9 @@
 // For normal onboarding, prefer bootstrap-admin.mjs (invite-email flow).
 //
 //   node --env-file=.env.local scripts/bootstrap-master-admin.mjs \
-//     --tenant "Cheap Mover CRM" \
-//     --company "Cheap Mover" \
-//     --brand "Cheap Mover" \
+//     --tenant "Movers Nationwide CRM" \
+//     --company "Movers Nationwide" \
+//     --brand "Movers Nationwide" \
 //     --name "Admin" \
 //     --email admin@gmail.com \
 //     --password "test123"
@@ -40,9 +40,9 @@ async function main() {
 
   // Defaults mirror lib/brandConfig.ts (appName / legalName / companyName) —
   // a plain .mjs script can't import that .ts file directly.
-  const tenantName = arg("tenant", "Cheap Mover CRM");
-  const companyName = arg("company", "Cheap Mover");
-  const brandName = arg("brand", "Cheap Mover");
+  const tenantName = arg("tenant", "Movers Nationwide CRM");
+  const companyName = arg("company", "Movers Nationwide");
+  const brandName = arg("brand", "Movers Nationwide");
   const fullName = arg("name", "Admin");
   const email = arg("email");
   const password = arg("password");

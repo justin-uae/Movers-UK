@@ -80,7 +80,7 @@ async function main() {
   // Companies & brands (looked up by slug first, so re-running is safe)
   // ---------------------------------------------------------------------
   const COMPANIES = [
-    { legal: "Cheap Mover", brand: "Cheap Mover", currency: "GBP" },
+    { legal: "Movers Nationwide Ltd", brand: "Movers Nationwide", currency: "GBP" },
     { legal: "Man & Van London Ltd", brand: "Man & Van London", currency: "GBP" },
     { legal: "Express Removals Ltd", brand: "Express Removals", currency: "GBP" },
     { legal: "Storage Plus Ltd", brand: "Storage Plus", currency: "GBP" },
@@ -128,7 +128,7 @@ async function main() {
   // Staff users — different regions, so leads route differently
   // ---------------------------------------------------------------------
   const USERS = [
-    { name: "Amir Khan", email: "amir@test.local", region: "London", brand: "Cheap Mover" },
+    { name: "Amir Khan", email: "amir@test.local", region: "London", brand: "Movers Nationwide" },
     { name: "Sofia Martin", email: "sofia@test.local", region: "Manchester", brand: "Express Removals" },
     { name: "Omar Ali", email: "omar@test.local", region: "Birmingham", brand: "Man & Van London" },
     { name: "Daniel Weber", email: "daniel@test.local", region: "Leeds", brand: "Storage Plus" },
@@ -211,7 +211,7 @@ async function main() {
   // Deleted and recreated every run so they always reflect current routing.
   // ---------------------------------------------------------------------
   const LEADS = [
-    { customer: "Horizon Lettings", brand: "Cheap Mover", pickup: "Camden, London NW1", destination: "Oxford OX2", moveType: "House removal", propertyType: "House", rooms: "3" },
+    { customer: "Horizon Lettings", brand: "Movers Nationwide", pickup: "Camden, London NW1", destination: "Oxford OX2", moveType: "House removal", propertyType: "House", rooms: "3" },
     { customer: "Rahman Family", brand: "Man & Van London", pickup: "Edgbaston, Birmingham B15", destination: "Solihull B91", moveType: "Flat removal", propertyType: "Flat", rooms: "2" },
     { customer: "Dubois Design Studio", brand: "Express Removals", pickup: "Ancoats, Manchester M4", destination: "Salford M50", moveType: "Office relocation", propertyType: "Office", rooms: "6" },
     { customer: "Fischer Accountants", brand: "Storage Plus", pickup: "Headingley, Leeds LS6", destination: "Harrogate HG1", moveType: "Storage", propertyType: "Office", rooms: "4" },

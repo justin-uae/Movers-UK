@@ -17,7 +17,7 @@ const ControlCentre = dynamic(() => import("@/components/pages/ControlCentre").t
 export default async function DashboardPage() {
   const profile = await requireProfile();
   const fullName = profile.full_name.trim();
-  // Shared/system accounts are named after the business ("Cheap Mover
+  // Shared/system accounts are named after the business ("Movers Nationwide
   // Admin") — their first word is half the company name, not a person's
   // name, so greet them by the full name instead.
   const isBusinessAccount = fullName.toLowerCase().startsWith(BRAND.companyName.toLowerCase());

@@ -7,9 +7,9 @@
 // Use Node's built-in --env-file flag (Node 20.6+) to supply it:
 //
 //   node --env-file=.env.local scripts/bootstrap-admin.mjs \
-//     --tenant "Cheap Mover CRM" \
-//     --company "Cheap Mover" \
-//     --brand "Cheap Mover" \
+//     --tenant "Movers Nationwide CRM" \
+//     --company "Movers Nationwide" \
+//     --brand "Movers Nationwide" \
 //     --name "Jane Admin" \
 //     --email jane@example.com
 //

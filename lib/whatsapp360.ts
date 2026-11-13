@@ -69,7 +69,7 @@ export function normalizeWhatsAppNumber(raw: string): string {
  * otherwise) — it's not baked into the approved template the way static
  * header *text* would be.
  *
- * TODO: upload Cheap Mover's own WhatsApp template header image (e.g. to
+ * TODO: upload Movers Nationwide's own WhatsApp template header image (e.g. to
  * this project's Supabase `template-assets` bucket) and set its public URL
  * in WHATSAPP_TEMPLATE_HEADER_IMAGE_URL. Until then it's undefined and the
  * header component is omitted from template sends.
