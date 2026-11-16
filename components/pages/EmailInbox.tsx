@@ -22,6 +22,10 @@ import {
   Mail,
   MailOpen,
   MapPin,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Paperclip,
   Plus,
   Search,
@@ -195,6 +199,12 @@ function formatFileSize(bytes: number | null) {
 
 type Override = Partial<Pick<EmailConversation, "unread" | "starred" | "archived" | "inInbox">>;
 
+/** The four columns, each of which can be minimised to a slim rail. */
+type Pane = "folders" | "list" | "reader" | "crm";
+const PANES_STORAGE_KEY = "email-centre-collapsed-panes";
+const NO_PANES_COLLAPSED: Record<Pane, boolean> = { folders: false, list: false, reader: false, crm: false };
+const RAIL_WIDTH = "52px";
+
 export function EmailInbox({
   account,
   messages,
@@ -272,12 +282,45 @@ export function EmailInbox({
   }, []);
   const layout = width >= 1320 ? "full" : width >= 980 ? "rail" : width >= 680 ? "split" : "single";
   const showFolders = layout === "full" || layout === "rail";
-  const columns = {
-    full: "200px 310px minmax(0,1fr) 290px",
-    rail: "200px 300px minmax(0,1fr)",
-    split: "290px minmax(0,1fr)",
-    single: "minmax(0,1fr)",
-  }[layout];
+
+  // Minimised panes — a per-viewer preference, remembered in this browser.
+  // Only the two wide layouts can minimise (the narrower ones already
+  // collapse folders into a dropdown and the CRM panel into a slide-over).
+  const [collapsedPanes, setCollapsedPanes] = useState<Record<Pane, boolean>>(NO_PANES_COLLAPSED);
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(PANES_STORAGE_KEY);
+      if (saved) setCollapsedPanes({ ...NO_PANES_COLLAPSED, ...(JSON.parse(saved) as Partial<Record<Pane, boolean>>) });
+    } catch {
+      // Storage unavailable or malformed — just start with everything open.
+    }
+  }, []);
+  function setPaneCollapsed(pane: Pane, value: boolean) {
+    setCollapsedPanes((prev) => {
+      const next = { ...prev, [pane]: value };
+      // The list and the conversation are never both minimised — one of them always fills the space.
+      if (value && pane === "list") next.reader = false;
+      if (value && pane === "reader") next.list = false;
+      try {
+        window.localStorage.setItem(PANES_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Not remembered — still applies for this visit.
+      }
+      return next;
+    });
+  }
+  const canCollapse = layout === "full" || layout === "rail";
+  const isCollapsed = (pane: Pane) => canCollapse && collapsedPanes[pane] && (pane !== "crm" || layout === "full");
+
+  const columns =
+    layout === "full" || layout === "rail"
+      ? [
+          isCollapsed("folders") ? RAIL_WIDTH : "200px",
+          isCollapsed("list") ? RAIL_WIDTH : isCollapsed("reader") ? "minmax(0,1fr)" : layout === "full" ? "310px" : "300px",
+          isCollapsed("reader") ? RAIL_WIDTH : "minmax(0,1fr)",
+          ...(layout === "full" ? [isCollapsed("crm") ? RAIL_WIDTH : "290px"] : []),
+        ].join(" ")
+      : { split: "290px minmax(0,1fr)", single: "minmax(0,1fr)" }[layout];
 
   // Wider layouts always show a conversation (the first, if none picked); on a phone only the one tapped.
   const selected = visible.find((c) => c.key === selectedKey) ?? (layout === "single" ? null : visible[0]) ?? null;
@@ -305,6 +348,8 @@ export function EmailInbox({
   function open(conversation: EmailConversation) {
     setSelectedKey(conversation.key);
     setMobileReading(true);
+    // Picking a conversation while the reading pane is minimised brings it back.
+    if (isCollapsed("reader")) setPaneCollapsed("reader", false);
   }
 
   // Opening an unread conversation marks it read.
@@ -323,15 +368,33 @@ export function EmailInbox({
       style={{ gridTemplateColumns: columns, visibility: width ? "visible" : "hidden" }}
     >
       {/* ── Folders ───────────────────────────────────────────── */}
-      {showFolders && (
-        <aside className="flex min-h-0 flex-col overflow-y-auto border-r border-slate-200 bg-slate-50/70 px-3 py-4">
+      {showFolders && isCollapsed("folders") && (
+        <PaneRail side="left" label="Folders" icon={Inbox} count={counts.inbox} onExpand={() => setPaneCollapsed("folders", false)}>
           <button
-            onClick={onCompose}
-            className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary-500 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-primary-600"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCompose();
+            }}
+            title="Compose"
+            aria-label="Compose"
+            className="grid h-8 w-8 place-items-center rounded-lg bg-primary-500 text-white shadow-sm hover:bg-primary-600"
           >
             <Plus size={16} />
-            Compose
           </button>
+        </PaneRail>
+      )}
+      {showFolders && !isCollapsed("folders") && (
+        <aside className="flex min-h-0 flex-col overflow-y-auto border-r border-slate-200 bg-slate-50/70 px-3 py-4">
+          <div className="mb-5 flex items-center gap-1.5">
+            <button
+              onClick={onCompose}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-500 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-primary-600"
+            >
+              <Plus size={16} />
+              Compose
+            </button>
+            <CollapseButton side="left" label="folders" onClick={() => setPaneCollapsed("folders", true)} />
+          </div>
           <SectionLabel>Mailbox</SectionLabel>
           {MAILBOX_VIEWS.map((v) => (
             <FolderButton key={v.key} active={view === v.key} count={counts[v.key]} onClick={() => setView(v.key)}>
@@ -350,7 +413,10 @@ export function EmailInbox({
       )}
 
       {/* ── Conversation list ─────────────────────────────────── */}
-      {showList && (
+      {showList && isCollapsed("list") && (
+        <PaneRail side="left" label={viewLabel} icon={Mail} count={visible.filter((c) => c.unread).length} onExpand={() => setPaneCollapsed("list", false)} />
+      )}
+      {showList && !isCollapsed("list") && (
         <section className="flex min-h-0 min-w-0 flex-col border-r border-slate-200">
           <div className="space-y-3 border-b border-slate-200 px-4 pb-3 pt-4">
             <div className="flex items-center justify-between gap-2">
@@ -406,6 +472,7 @@ export function EmailInbox({
                     <Plus size={16} />
                   </button>
                 )}
+                {canCollapse && <CollapseButton side="left" label="conversation list" onClick={() => setPaneCollapsed("list", true)} />}
               </div>
             </div>
             <div className="relative">
@@ -483,7 +550,10 @@ export function EmailInbox({
       )}
 
       {/* ── Conversation ──────────────────────────────────────── */}
-      {showReader && (
+      {showReader && isCollapsed("reader") && (
+        <PaneRail side="right" label={selected?.subject || "Conversation"} icon={MailOpen} onExpand={() => setPaneCollapsed("reader", false)} />
+      )}
+      {showReader && !isCollapsed("reader") && (
         <section className="flex min-h-0 min-w-0 flex-col">
           {selected ? (
             <Conversation
@@ -497,6 +567,7 @@ export function EmailInbox({
               showBack={layout === "single"}
               showCrmToggle={layout !== "full"}
               onBack={() => setMobileReading(false)}
+              onCollapse={canCollapse ? () => setPaneCollapsed("reader", true) : undefined}
               onToggleCrm={() => setCrmOpen((o) => !o)}
               onMarkUnread={() => patch(selected, { unread: true }, () => setConversationReadAction(selected.messageIds, false))}
               onToggleStar={() => patch(selected, { starred: !selected.starred }, () => setConversationStarredAction(selected.messageIds, !selected.starred))}
@@ -522,9 +593,12 @@ export function EmailInbox({
       )}
 
       {/* ── Linked CRM record ─────────────────────────────────── */}
-      {selected && layout === "full" && (
+      {selected && layout === "full" && isCollapsed("crm") && (
+        <PaneRail side="right" label="CRM record" icon={Info} onExpand={() => setPaneCollapsed("crm", false)} />
+      )}
+      {selected && layout === "full" && !isCollapsed("crm") && (
         <aside className="min-h-0 overflow-y-auto border-l border-slate-200 bg-slate-50/50">
-          <CrmPanel context={selected.context} mounted={mounted} />
+          <CrmPanel context={selected.context} mounted={mounted} onCollapse={() => setPaneCollapsed("crm", true)} />
         </aside>
       )}
       {selected && layout !== "full" && crmOpen && (
@@ -535,6 +609,70 @@ export function EmailInbox({
           </aside>
         </>
       )}
+    </div>
+  );
+}
+
+/** Minimise button in a pane's header — the arrow points the way the pane folds. */
+function CollapseButton({ side, label, onClick }: { side: "left" | "right"; label: string; onClick: () => void }) {
+  const Icon = side === "left" ? PanelLeftClose : PanelRightClose;
+  return (
+    <button
+      onClick={onClick}
+      title={`Minimise ${label}`}
+      aria-label={`Minimise ${label}`}
+      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+    >
+      <Icon size={16} />
+    </button>
+  );
+}
+
+/** A minimised pane: a slim full-height strip with its icon, an optional
+    count and a vertical label — clicking anywhere on it opens the pane again. */
+function PaneRail({
+  side,
+  label,
+  icon: Icon,
+  count,
+  onExpand,
+  children,
+}: {
+  side: "left" | "right";
+  label: string;
+  icon: typeof Inbox;
+  count?: number;
+  onExpand: () => void;
+  /** Extra quick action shown under the expand button (e.g. Compose). */
+  children?: React.ReactNode;
+}) {
+  const ExpandIcon = side === "left" ? PanelLeftOpen : PanelRightOpen;
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onExpand}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onExpand();
+        }
+      }}
+      title={`Show ${label}`}
+      aria-label={`Show ${label}`}
+      className={`group flex min-h-0 cursor-pointer flex-col items-center gap-3 overflow-hidden bg-slate-50/70 py-3 text-slate-500 outline-none transition hover:bg-slate-100 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-200 ${
+        side === "left" ? "border-r" : "border-l"
+      } border-slate-200`}
+    >
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200 transition group-hover:text-primary-600 group-hover:ring-primary-200">
+        <ExpandIcon size={16} />
+      </span>
+      {children}
+      <Icon size={16} className="shrink-0" />
+      {!!count && <span className="shrink-0 rounded-full bg-primary-500 px-1.5 text-[10px] font-bold tabular-nums text-white">{count}</span>}
+      <span className="min-h-0 rotate-180 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-bold uppercase tracking-[.14em] [writing-mode:vertical-rl]">
+        {label}
+      </span>
     </div>
   );
 }
@@ -582,6 +720,7 @@ function Conversation({
   showBack,
   showCrmToggle,
   onBack,
+  onCollapse,
   onToggleCrm,
   onMarkUnread,
   onToggleStar,
@@ -598,6 +737,8 @@ function Conversation({
   /** No CRM column beside it — offer a button that slides the panel in. */
   showCrmToggle: boolean;
   onBack: () => void;
+  /** Minimise the reading pane to a rail (wide layouts only). */
+  onCollapse?: () => void;
   onToggleCrm: () => void;
   onMarkUnread: () => void;
   onToggleStar: () => void;
@@ -703,6 +844,11 @@ function Conversation({
               <Info size={14} />
               {!compact && "CRM record"}
             </button>
+          )}
+          {onCollapse && (
+            <span className="ml-1 border-l border-slate-200 pl-1">
+              <CollapseButton side="right" label="conversation" onClick={onCollapse} />
+            </span>
           )}
         </div>
       </div>
@@ -928,17 +1074,29 @@ function AddressField({ label, value, onChange }: { label: string; value: string
   );
 }
 
-function CrmPanel({ context, mounted, onClose }: { context: EmailCrmContext; mounted: boolean; onClose?: () => void }) {
+function CrmPanel({
+  context,
+  mounted,
+  onClose,
+  onCollapse,
+}: {
+  context: EmailCrmContext;
+  mounted: boolean;
+  onClose?: () => void;
+  /** Minimise the panel to a rail (full layout only). */
+  onCollapse?: () => void;
+}) {
   const { quote, move, customer, supplier, events } = context;
   return (
     <div className="p-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-black text-slate-900">Linked CRM record</h3>
         {onClose && (
           <button onClick={onClose} className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-slate-100" aria-label="Close">
             <X size={15} />
           </button>
         )}
+        {onCollapse && <CollapseButton side="right" label="CRM record" onClick={onCollapse} />}
       </div>
 
       {!quote && !customer && !supplier && (

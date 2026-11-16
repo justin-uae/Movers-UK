@@ -245,8 +245,15 @@ export async function getAiProfileId(admin: Admin, tenantId: string): Promise<st
   const { data: perm } = await admin.from("permissions").select("id").eq("key", "quotes.view_ai_generated").maybeSingle();
   if (!perm) return null;
 
-  const { data: roleLinks } = await admin.from("role_permissions").select("role_id").eq("permission_id", perm.id);
-  const roleIds = (roleLinks ?? []).map((r) => r.role_id);
+  // Master Admin is seeded with every permission (seed_tenant_defaults),
+  // quotes.view_ai_generated included — without excluding it (both the role
+  // and any is_master_admin profile), an admin created before the AI user is
+  // picked as "the AI", and assigning a lead to the real AI user never
+  // triggers a quote.
+  const { data: roleLinks } = await admin.from("role_permissions").select("role_id, roles(name)").eq("permission_id", perm.id);
+  const roleIds = (roleLinks ?? [])
+    .filter((r) => (r.roles as unknown as { name: string } | null)?.name !== "Master Admin")
+    .map((r) => r.role_id);
   if (roleIds.length === 0) return null;
 
   const { data: profile } = await admin
@@ -254,6 +261,7 @@ export async function getAiProfileId(admin: Admin, tenantId: string): Promise<st
     .select("id")
     .eq("tenant_id", tenantId)
     .eq("status", "active")
+    .eq("is_master_admin", false)
     .in("role_id", roleIds)
     .order("created_at", { ascending: true })
     .limit(1)
