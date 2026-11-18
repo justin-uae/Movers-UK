@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { recordAudit } from "@/lib/audit";
-import { getStripeClient, fromStripeAmount } from "@/lib/stripe";
+import { getStripeClient, fromStripeAmount, stripeKeys } from "@/lib/stripe";
 import { recordCustomerPayment } from "@/lib/quotePayments";
 
 // Stripe posts here with no Supabase session — authenticated by its own
@@ -13,7 +13,7 @@ import { recordCustomerPayment } from "@/lib/quotePayments";
 // fires.
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const { webhookSecret } = stripeKeys();
   if (!signature || !webhookSecret) {
     return NextResponse.json({ error: "Webhook not configured." }, { status: 400 });
   }

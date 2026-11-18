@@ -8,11 +8,34 @@ import Stripe from "stripe";
  * pattern as lib/supabase/admin.ts).
  */
 export function getStripeClient() {
-  const secretKey = process.env.STRIPE_SECRET_KEY;
+  const { secretKey, secretKeyName } = stripeKeys();
   if (!secretKey) {
-    throw new Error("STRIPE_SECRET_KEY is not configured — online payment is unavailable until it's set.");
+    throw new Error(`${secretKeyName} is not configured — online payment is unavailable until it's set.`);
   }
   return new Stripe(secretKey);
+}
+
+/**
+ * STRIPE_MODE picks which pair of keys is used: "sandbox" (development /
+ * testing — SANDBOX_STRIPE_SECRET_KEY + SANDBOX_STRIPE_WEBHOOK_SECRET) or
+ * "live" (the default — STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET). Both
+ * pairs can sit in the environment at once; switching is one variable.
+ */
+export function stripeKeys() {
+  const sandbox = process.env.STRIPE_MODE?.trim().toLowerCase() === "sandbox";
+  return sandbox
+    ? {
+        mode: "sandbox" as const,
+        secretKey: process.env.SANDBOX_STRIPE_SECRET_KEY,
+        secretKeyName: "SANDBOX_STRIPE_SECRET_KEY",
+        webhookSecret: process.env.SANDBOX_STRIPE_WEBHOOK_SECRET,
+      }
+    : {
+        mode: "live" as const,
+        secretKey: process.env.STRIPE_SECRET_KEY,
+        secretKeyName: "STRIPE_SECRET_KEY",
+        webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+      };
 }
 
 // Stripe expects amounts in the currency's smallest unit (cents) except for
