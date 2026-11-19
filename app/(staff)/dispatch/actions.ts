@@ -299,7 +299,7 @@ export async function offerAllocationToSuppliersAction(allocationId: string, sup
     if (supplierWhatsapp) {
       const waResult = await sendWhatsAppTemplate(
         normalizeWhatsAppNumber(supplierWhatsapp),
-        "job_offered_supplier",
+        "movers_job_offered_supplier",
         [
           supplier.name,
           job.quotes?.brands?.name ?? "",

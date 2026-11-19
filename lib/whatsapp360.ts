@@ -62,17 +62,17 @@ export function normalizeWhatsAppNumber(raw: string): string {
 
 /**
  * The shared header image used across every WhatsApp template with an IMAGE
- * header (quote_sent_customer, booking_confirmed_customer,
- * payment_received_customer, job_offered_supplier — 360dialog Template
- * Manager). A template with a static IMAGE header still requires that image
+ * header (movers_quote_sent_customer, movers_booking_confirmed_customer,
+ * movers_payment_received_customer, movers_job_offered_supplier — 360dialog
+ * Template Manager; "movers_" keeps them apart from the same-named templates
+ * another CRM uses on the shared WhatsApp account). A template with a static IMAGE header still requires that image
  * supplied on every send (error 132012 "expected IMAGE, received UNKNOWN"
  * otherwise) — it's not baked into the approved template the way static
  * header *text* would be.
  *
- * TODO: upload Movers Nationwide's own WhatsApp template header image (e.g. to
- * this project's Supabase `template-assets` bucket) and set its public URL
- * in WHATSAPP_TEMPLATE_HEADER_IMAGE_URL. Until then it's undefined and the
- * header component is omitted from template sends.
+ * Set WHATSAPP_TEMPLATE_HEADER_IMAGE_URL to the public URL of
+ * public/images/movers-nationwide-whatsapp-header.jpg. Left unset, the header
+ * component is omitted — which then fails for any IMAGE-header template.
  */
 export const WHATSAPP_TEMPLATE_HEADER_IMAGE_URL: string | undefined =
   process.env.WHATSAPP_TEMPLATE_HEADER_IMAGE_URL || undefined;

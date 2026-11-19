@@ -327,7 +327,7 @@ export async function createQuoteAction(
     if (whatsappNumber) {
       const waResult = await sendWhatsAppTemplate(
         normalizeWhatsAppNumber(whatsappNumber),
-        "quote_sent_customer",
+        "movers_quote_sent_customer",
         [customer?.company_name || customer?.contact_name || "Customer", brand.name, quote.quote_number, `${sellingPrice.toFixed(2)} ${currency}`],
         quote.public_token,
         WHATSAPP_TEMPLATE_HEADER_IMAGE_URL,

@@ -289,7 +289,7 @@ export async function acceptQuoteAction(token: string, acceptedByName: string) {
   if (customerWhatsapp) {
     const waResult = await sendWhatsAppTemplate(
       normalizeWhatsAppNumber(customerWhatsapp),
-      "booking_confirmed_customer",
+      "movers_booking_confirmed_customer",
       [
         enquiry?.customers?.company_name || enquiry?.customers?.contact_name || "Customer",
         brand?.name ?? "",

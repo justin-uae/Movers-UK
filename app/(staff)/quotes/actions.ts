@@ -361,7 +361,7 @@ export async function resendQuoteWhatsAppAction(quoteId: string) {
 
   const result = await sendWhatsAppTemplate(
     normalizeWhatsAppNumber(whatsappNumber),
-    "quote_sent_customer",
+    "movers_quote_sent_customer",
     [customer?.company_name || customer?.contact_name || "Customer", brand?.name ?? "", quote.quote_number, `${version ? version.selling_price.toFixed(2) : "0.00"} ${quote.currency}`],
     quote.public_token,
     WHATSAPP_TEMPLATE_HEADER_IMAGE_URL,

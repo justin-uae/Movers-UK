@@ -180,7 +180,7 @@ export async function finalizeQuoteFromVerifiedPayments(
     if (customerWhatsapp) {
       const waResult = await sendWhatsAppTemplate(
         normalizeWhatsAppNumber(customerWhatsapp),
-        "payment_received_customer",
+        "movers_payment_received_customer",
         [
           customer?.company_name || customer?.contact_name || "Customer",
           quote.quote_number,
