@@ -45,7 +45,53 @@ export interface UserListRow {
   signature_emergency_email: string | null;
   signature_website: string | null;
   signature_logo_url: string | null;
-  user_regions: { id: string; region: string; lat: number | null; lng: number | null }[];
+  user_regions: { id: string; region: string; lat: number | null; lng: number | null; geo?: RegionGeoTag | null }[];
+}
+
+/** How a region is matched for lead routing (0122_geo_lead_routing.sql); absent when the migration isn't applied. */
+export interface RegionGeoTag {
+  geo_type: "country" | "admin_area" | "locality" | null;
+  country_code: string | null;
+  radius_km: number | null;
+  geo_checked_at: string | null;
+}
+
+function RegionMatchTag({ geo }: { geo: RegionGeoTag | null | undefined }) {
+  if (!geo) return null;
+  const base = "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold whitespace-nowrap";
+  if (geo.geo_type === "country") {
+    return (
+      <span className={`${base} bg-slate-100 text-slate-600`} title="Matches any pickup or destination in this country">
+        Whole country{geo.country_code ? ` · ${geo.country_code}` : ""}
+      </span>
+    );
+  }
+  if (geo.geo_type === "admin_area") {
+    return (
+      <span className={`${base} bg-slate-100 text-slate-600`} title="Matches any pickup or destination in this state / county / nation">
+        Whole area
+      </span>
+    );
+  }
+  if (geo.geo_type === "locality") {
+    return (
+      <span className={`${base} bg-slate-100 text-slate-600`} title="Matches pickups and destinations within this distance of the place">
+        Within {Math.round(geo.radius_km ?? 50)} km
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`${base} bg-amber-50 text-amber-700`}
+      title={
+        geo.geo_checked_at
+          ? "Google couldn't place this as a country, area or city — it only matches leads whose address text contains the name"
+          : "Not classified yet — until it is, it only matches leads whose address text contains the name"
+      }
+    >
+      Word match
+    </span>
+  );
 }
 
 /**
@@ -170,6 +216,7 @@ function RegionEditor({
               <span className="min-w-0 flex-1 truncate text-sm text-slate-600" title={r.region}>
                 {r.region}
               </span>
+              <RegionMatchTag geo={r.geo} />
               {canManage && (
                 <button
                   type="button"

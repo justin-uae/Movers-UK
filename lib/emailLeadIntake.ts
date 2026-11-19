@@ -11,6 +11,7 @@ import { resolveCustomerId, notifyIfAutoAssigned } from "./leadIntake";
 import { formatDateAndTime } from "./formatDate";
 import { instantAutoQuoteNewLead } from "./aiAutoQuote";
 import { moveDetailsSummary, pickMoveDetails, MOVE_DETAILS_EXTRACTION_KEYS, MOVE_DETAILS_EXTRACTION_PROPERTIES, type MoveDetails } from "./moveDetails";
+import { prepareLeadRouting } from "./regionClassification";
 
 type Admin = SupabaseClient<Database>;
 
@@ -294,6 +295,9 @@ async function processMessage(
   const duplicateLeadId = await findRecentDuplicateLead(admin, tenantId, customerId, extraction);
   if (duplicateLeadId) return { decision: "discarded_duplicate", leadId: duplicateLeadId, detail: `Matches existing lead ${duplicateLeadId}` };
 
+  // Geography-based routing lookup — fail-open, see lib/regionClassification.ts.
+  const leadGeo = await prepareLeadRouting(admin, tenantId, extraction.pickup, extraction.destination);
+
   const { data: lead, error: leadError } = await admin
     .from("leads")
     .insert({
@@ -304,6 +308,7 @@ async function processMessage(
       customer_id: customerId,
       pickup_text: extraction.pickup,
       destination_text: extraction.destination,
+      ...leadGeo,
       travel_date: /^\d{4}-\d{2}-\d{2}$/.test(extraction.move_date ?? "") ? extraction.move_date : null,
       pickup_time: asPgTime(extraction.move_time),
       ...pickMoveDetails(extraction),

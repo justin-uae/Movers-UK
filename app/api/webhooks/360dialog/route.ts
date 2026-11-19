@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { recordAudit } from "@/lib/audit";
-import { sendWhatsAppText } from "@/lib/whatsapp360";
+import { sendWhatsAppText, sendWhatsAppButtons, sanitizeQuickReplies, markReadWithTyping } from "@/lib/whatsapp360";
 import { reverseGeocode } from "@/lib/reverseGeocode";
 import {
   runIntakeTurn,
@@ -16,6 +16,7 @@ import { createAndSendQuote, getAiProfileId, LEAD_FOR_SWEEP_COLUMNS, type LeadFo
 import { getAiModelSetting } from "@/lib/aiProviders";
 import { touchConversationOnInbound } from "@/lib/whatsappConversations";
 import { NO_MOVE_DETAILS, pickMoveDetails } from "@/lib/moveDetails";
+import { prepareLeadRouting } from "@/lib/regionClassification";
 
 // Inbound WhatsApp -> lead creation via 360dialog (a WhatsApp Business
 // Solution Provider built directly on Meta's Cloud API — same webhook
@@ -37,7 +38,10 @@ import { NO_MOVE_DETAILS, pickMoveDetails } from "@/lib/moveDetails";
 // 0082_whatsapp_ai_intake.sql). A lead is only ever created once our own
 // server-side check (hasRequiredMoveFields), not the model's say-so alone,
 // confirms all seven fields (name, email, moving from, moving to, move date,
-// property size, notes) are present.
+// property size, notes) are present AND the customer has confirmed the recap
+// summary the bot sends at the end. Replies can carry tap-to-reply buttons
+// (sendWhatsAppButtons), and each inbound message is marked read with a
+// typing indicator while the AI writes its answer.
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -53,6 +57,10 @@ interface WhatsAppMessage {
   type: string;
   text?: { body: string };
   location?: { latitude: number; longitude: number; name?: string; address?: string };
+  /** A tapped reply button / list row on one of our interactive messages. */
+  interactive?: { type: string; button_reply?: { id: string; title: string }; list_reply?: { id: string; title: string } };
+  /** A tapped quick-reply button on a template message. */
+  button?: { text?: string; payload?: string };
 }
 
 interface WhatsAppValue {
@@ -105,6 +113,12 @@ async function resolveBrand(admin: AdminClient, brandSlug: string, secret: strin
     latitude/longitude the model can't usefully read. */
 async function resolveInboundText(message: WhatsAppMessage): Promise<string> {
   if (message.type === "text" && message.text?.body) return message.text.body;
+  // Tapping one of the bot's quick-reply buttons reads exactly like typing its label.
+  if (message.type === "interactive") {
+    const title = message.interactive?.button_reply?.title ?? message.interactive?.list_reply?.title;
+    if (title) return title;
+  }
+  if (message.type === "button" && (message.button?.text || message.button?.payload)) return message.button.text || message.button.payload!;
   if (message.type === "location" && message.location) {
     const loc = message.location;
     if (loc.address) return `Shared location: ${loc.address}`;
@@ -212,6 +226,11 @@ function parseLenientDate(text: string): string | null {
   return parsed.toISOString().slice(0, 10);
 }
 
+/** The recap summary the bot sends before booking uses one "*Label:* value" line per detail. */
+function looksLikeSummary(text: string): boolean {
+  return (text.match(/\*[^*\n]{2,30}:\*/g) ?? []).length >= 3;
+}
+
 async function createLeadFromSession(admin: AdminClient, brand: Brand, waId: string, customerId: string, sessionId: string, collected: CollectedMove) {
   const travelDate = collected.move_date ? parseLenientDate(collected.move_date) : null;
   const name = collected.name?.trim() || waId;
@@ -234,6 +253,9 @@ async function createLeadFromSession(admin: AdminClient, brand: Brand, waId: str
 
   await admin.from("customers").update({ contact_name: name, phone: waId, ...(email ? { email } : {}) }).eq("id", customerId);
 
+  // Geography-based routing lookup — fail-open, see lib/regionClassification.ts.
+  const leadGeo = await prepareLeadRouting(admin, brand.tenant_id, collected.pickup, collected.destination);
+
   const { data: lead, error: leadError } = await admin
     .from("leads")
     .insert({
@@ -244,6 +266,7 @@ async function createLeadFromSession(admin: AdminClient, brand: Brand, waId: str
       customer_id: customerId,
       pickup_text: collected.pickup,
       destination_text: collected.destination,
+      ...leadGeo,
       travel_date: travelDate,
       ...pickMoveDetails({ ...NO_MOVE_DETAILS, ...collected }),
       notes,
@@ -381,6 +404,9 @@ async function handleInboundMessage(admin: AdminClient, brand: Brand, waId: stri
   // stepping on a staff reply typed from app/(staff)/whatsapp.
   if (session?.step === "handed_off") return;
 
+  // Blue ticks + "typing…" while the reply is being written — cosmetic, fire-and-forget.
+  void markReadWithTyping(message.id);
+
   // A trivial "thanks"/"okey"/👍/etc. reply to an already-finished
   // conversation gets a warm one-line reply instead of spinning up a whole
   // new intake around it — that's what made the bot feel broken ("I said
@@ -439,7 +465,7 @@ async function handleInboundMessage(admin: AdminClient, brand: Brand, waId: stri
 
   let result;
   try {
-    result = await runIntakeTurn(brand.name, transcript, session.collected ?? {}, inboundText, aiModel);
+    result = await runIntakeTurn(brand.name, transcript, session.collected ?? {}, inboundText, aiModel, contactName);
   } catch (err) {
     console.error(`360dialog webhook: AI intake turn failed for ${waId}:`, err);
     const fallback = "Sorry, I'm having trouble replying right now — someone from our team will follow up with you shortly.";
@@ -453,6 +479,13 @@ async function handleInboundMessage(admin: AdminClient, brand: Brand, waId: stri
   // down on an earlier turn must never silently revert to null just because
   // this turn's re-summarize of the whole transcript missed it.
   const mergedCollected = mergeCollected(session.collected ?? {}, result.collected);
+  // The summary confirmation only counts if the bot's previous message really
+  // was the recap summary — a model that flips summary_confirmed early can't
+  // skip the customer's chance to check their details.
+  const previousBotMessage = [...transcript].reverse().find((m) => m.role === "assistant")?.content ?? "";
+  if (mergedCollected.summary_confirmed && !looksLikeSummary(previousBotMessage)) {
+    mergedCollected.summary_confirmed = null;
+  }
   const readyForLead = result.ready && hasRequiredMoveFields(mergedCollected);
 
   await admin
@@ -468,8 +501,15 @@ async function handleInboundMessage(admin: AdminClient, brand: Brand, waId: stri
   // arrives right away, then (if auto-quote fires) a heads-up, then the
   // quote itself once it's actually ready — not the quote appearing first
   // with a "thanks" arriving confusingly after it.
-  await sendWhatsAppText(waId, result.reply);
-  await logWhatsAppMessage(admin, brand, waId, customerId, "outbound", result.reply);
+  // Tap-to-reply buttons when the AI offered sensible ones (falls back to plain text).
+  const quickReplies = readyForLead ? [] : sanitizeQuickReplies(result.quickReplies);
+  if (quickReplies.length > 0) {
+    await sendWhatsAppButtons(waId, result.reply, quickReplies);
+    await logWhatsAppMessage(admin, brand, waId, customerId, "outbound", result.reply, "interactive");
+  } else {
+    await sendWhatsAppText(waId, result.reply);
+    await logWhatsAppMessage(admin, brand, waId, customerId, "outbound", result.reply);
+  }
 
   if (readyForLead) {
     await createLeadFromSession(admin, brand, waId, customerId, session.id, mergedCollected);

@@ -197,13 +197,20 @@ export interface UserBrand {
   brand_id: string;
 }
 
-/** A user can cover several regions — matched against lead pickup/destination text for routing. lat/lng are set when the region was added via the map picker; null for older rows added as plain text. */
+/** A user can cover several regions — matched against lead pickup/destination geography for routing (0122_geo_lead_routing.sql; text word match for unclassified regions). lat/lng are set when the region was added via the map picker; null for older rows added as plain text. */
 export interface UserRegion {
   id: string;
   user_id: string;
   region: string;
   lat: number | null;
   lng: number | null;
+  /** Set once by lib/regionClassification.ts (0122_geo_lead_routing.sql) — null keeps the old word match. */
+  geo_type: "country" | "admin_area" | "locality" | null;
+  country_code: string | null;
+  admin_area: string | null;
+  /** locality regions only; null means the default 50 km. */
+  radius_km: number | null;
+  geo_checked_at: string | null;
   created_at: string;
 }
 
@@ -397,6 +404,17 @@ export interface Lead extends MoveDetailColumns {
   utm_content: string | null;
   referrer: string | null;
   raw_payload: Record<string, unknown> | null;
+  /** Resolved by Google at intake (lib/geoLookup.ts resolveLeadGeo) — null when the lookup failed or the lead predates 0122. */
+  pickup_country_code: string | null;
+  pickup_admin_area: string | null;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+  destination_country_code: string | null;
+  destination_admin_area: string | null;
+  destination_lat: number | null;
+  destination_lng: number | null;
+  /** Why route_lead() assigned or pooled this lead. */
+  routing_note: string | null;
   created_at: string;
   updated_at: string;
 }

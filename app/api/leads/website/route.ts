@@ -7,6 +7,7 @@ import { resolveCustomerId, notifyIfAutoAssigned } from "@/lib/leadIntake";
 import { formatDateAndTime } from "@/lib/formatDate";
 import { moveDetailsSummary } from "@/lib/moveDetails";
 import { verifyRecaptcha } from "@/lib/recaptcha";
+import { prepareLeadRouting } from "@/lib/regionClassification";
 
 // Public website intake (Part 22). Authenticated by a per-brand shared
 // secret (brands.webhook_secret) rather than a Supabase session — the
@@ -257,6 +258,10 @@ async function handleQuoteSubmission(json: unknown) {
     .limit(1)
     .maybeSingle();
 
+  // Google lookup of both endpoints for geography-based routing — fail-open
+  // (all-null on error/timeout, and route_lead() then word-matches as before).
+  const leadGeo = await prepareLeadRouting(admin, brand.tenant_id, body.pickup, body.destination);
+
   const { data: lead, error: leadError } = await admin
     .from("leads")
     .insert({
@@ -267,6 +272,7 @@ async function handleQuoteSubmission(json: unknown) {
       customer_id: customerId,
       pickup_text: body.pickup,
       destination_text: body.destination,
+      ...leadGeo,
       travel_date: travelDate,
       pickup_time: body.moveTime ?? null,
       notes,

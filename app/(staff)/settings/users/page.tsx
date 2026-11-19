@@ -6,9 +6,11 @@ import { Pagination } from "@/components/ui/Pagination";
 import { UsersDiagram } from "@/components/ui/guide-diagrams/UsersDiagram";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { classifyPendingRegions } from "@/lib/regionClassification";
 import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 import { InviteUserForm } from "./InviteUserForm";
-import { UserRow, UserCard, type UserListRow } from "./UserRow";
+import { UserRow, UserCard, type UserListRow, type RegionGeoTag } from "./UserRow";
 import type { AllocatedRegion } from "./RegionMapModal";
 import type { EmailAccountStatus } from "./EmailAccountForm";
 
@@ -25,6 +27,10 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   const page = Math.max(1, Number(params.page) || 1);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
+
+  // Lazily classify any regions not yet checked (country / area / locality)
+  // so routing can match them geographically — once per region, fail-open.
+  await classifyPendingRegions(createAdminClient(), profile.tenant_id);
 
   let usersQuery = supabase
     .from("profiles")
@@ -56,7 +62,15 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   // render a silent, misleading "No users yet." Surface it instead.
   if (usersError) console.error("settings/users: users query failed:", usersError.message);
   if (regionsError) console.error("settings/users: user_regions query failed:", regionsError.message);
-  const users = (data ?? []) as unknown as UserListRow[];
+  // Routing classification of each region, read separately and tolerantly:
+  // if migration 0122 isn't applied yet these columns don't exist, the query
+  // errors, and the page simply shows no tags rather than breaking.
+  const { data: regionGeoRaw } = await supabase.from("user_regions").select("id, geo_type, country_code, radius_km, geo_checked_at");
+  const regionGeoById = new Map(((regionGeoRaw ?? []) as unknown as (RegionGeoTag & { id: string })[]).map((r) => [r.id, r]));
+  const users = ((data ?? []) as unknown as UserListRow[]).map((u) => ({
+    ...u,
+    user_regions: (u.user_regions ?? []).map((r) => ({ ...r, geo: regionGeoById.get(r.id) ?? null })),
+  }));
   const mailboxByUserId = new Map(
     ((mailboxes ?? []) as unknown as (EmailAccountStatus & { user_id: string })[]).map((m) => [m.user_id, m]),
   );
@@ -103,7 +117,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                 {
                   heading: "Assigning a region",
                   body: [
-                    "The + next to a user's regions opens a map — search a place or click anywhere on it, and see every colleague's coverage as coloured pins before adding a new one. Regions are matched against a lead's pickup/destination text to help route it, so keep them as real place names (a city or neighbourhood, not a vague area).",
+                    "The + next to a user's regions opens a map — search a place or click anywhere on it, and see every colleague's coverage as coloured pins before adding a new one. Each region is looked up on Google once and tagged by what it covers: \"Whole country\" (any pickup or destination in that country), \"Whole area\" (a state, county or nation such as England), or \"Within 50 km\" (a city, district or airport — anywhere within 50 km of it). New leads are resolved on Google too, and go to the one person whose region matches most specifically; if two or more people tie, the lead goes to the open pool. Regions Google can't place as one of those (e.g. \"Caribbean\") show an amber \"Word match\" tag and only match leads whose address text contains the name — use a real country, area or city instead where you can.",
                   ],
                 },
               ]}

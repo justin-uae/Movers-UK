@@ -1,4 +1,5 @@
 import "server-only";
+import { resolveEndpointPair, GEO_TIMEOUT_MS } from "./geoLookup";
 
 export interface MoveDistance {
   distanceKm: number;
@@ -55,10 +56,46 @@ export function moveRouteDistances(legs: { pickup_address: string; destination_a
   return Promise.all(legs.map((leg) => estimateRouteDistance([leg.pickup_address, leg.destination_address])));
 }
 
+/** Recent results per address pair — pages re-render often and every lookup is billed. */
+const CACHE_TTL_MS = 30 * 60 * 1000;
+const CACHE_MAX = 500;
+const distanceCache = new Map<string, { at: number; value: MoveDistance | null }>();
+
 export async function estimateMoveDistance(pickup: string | null, destination: string | null): Promise<MoveDistance | null> {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   if (!apiKey || !pickup?.trim() || !destination?.trim()) return null;
 
+  const cacheKey = `${pickup.trim().toLowerCase()} -> ${destination.trim().toLowerCase()}`;
+  const cached = distanceCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.value;
+
+  // Each address on its own can resolve somewhere absurd ("Bergamo hotel"
+  // alone → a hotel called Bergamo in Yerevan, so Bergamo Airport → Bergamo
+  // hotel came out at 3,679 km). resolveEndpointPair re-searches a vague end
+  // near the other one when the two land implausibly far apart; only then do
+  // we route between its coordinates. Otherwise — and on any lookup failure
+  // or timeout — the route is computed from the address strings exactly as
+  // before (fail-open).
+  let origin: object = { address: pickup };
+  let dest: object = { address: destination };
+  try {
+    const pair = await resolveEndpointPair(pickup, destination, AbortSignal.timeout(GEO_TIMEOUT_MS));
+    if (pair.reResolved && pair.pickup && pair.destination) {
+      origin = { location: { latLng: { latitude: pair.pickup.lat, longitude: pair.pickup.lng } } };
+      dest = { location: { latLng: { latitude: pair.destination.lat, longitude: pair.destination.lng } } };
+    }
+  } catch (err) {
+    console.error("estimateMoveDistance: context lookup failed, using plain addresses:", err);
+  }
+
+  const value = await computeRoute(apiKey, origin, dest);
+  if (!value) return null; // don't cache failures — a transient Google error shouldn't stick
+  if (distanceCache.size >= CACHE_MAX) distanceCache.delete(distanceCache.keys().next().value!);
+  distanceCache.set(cacheKey, { at: Date.now(), value });
+  return value;
+}
+
+async function computeRoute(apiKey: string, origin: object, destination: object): Promise<MoveDistance | null> {
   // Routes API (computeRoutes), not the legacy Distance Matrix API, which
   // Google no longer enables on new Cloud projects. The key's project needs
   // "Routes API" enabled.
@@ -70,11 +107,7 @@ export async function estimateMoveDistance(pickup: string | null, destination: s
         "X-Goog-Api-Key": apiKey,
         "X-Goog-FieldMask": "routes.distanceMeters,routes.duration",
       },
-      body: JSON.stringify({
-        origin: { address: pickup },
-        destination: { address: destination },
-        travelMode: "DRIVE",
-      }),
+      body: JSON.stringify({ origin, destination, travelMode: "DRIVE" }),
     });
     if (!res.ok) {
       console.error("estimateMoveDistance: Routes API returned", res.status, (await res.text()).slice(0, 300));

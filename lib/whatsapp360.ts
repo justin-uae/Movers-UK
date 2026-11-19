@@ -55,6 +55,66 @@ export async function sendWhatsAppText(to: string, body: string): Promise<SendRe
   return sendMessage({ messaging_product: "whatsapp", to, type: "text", text: { body } });
 }
 
+/** WhatsApp's limits for reply-button messages. */
+const MAX_BUTTONS = 3;
+const MAX_BUTTON_TITLE = 20;
+const MAX_INTERACTIVE_BODY = 1024;
+
+/** Cleans AI-suggested quick replies down to what WhatsApp accepts: trimmed, ≤20 chars, unique, at most 3. */
+export function sanitizeQuickReplies(options: string[] | null | undefined): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of options ?? []) {
+    const title = (raw ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_BUTTON_TITLE).trim();
+    const key = title.toLowerCase();
+    if (!title || seen.has(key)) continue;
+    seen.add(key);
+    out.push(title);
+    if (out.length === MAX_BUTTONS) break;
+  }
+  return out;
+}
+
+/**
+ * A message with tap-to-reply buttons (WhatsApp "interactive" reply buttons —
+ * free-form, so only inside the 24h customer-service window, same as text).
+ * The tapped button comes back as an inbound `interactive.button_reply`
+ * whose title the webhook treats as the customer's typed answer. Falls back
+ * to plain text when there are no usable buttons, the body is too long for
+ * an interactive message, or WhatsApp rejects the interactive send.
+ */
+export async function sendWhatsAppButtons(to: string, body: string, options: string[]): Promise<SendResult> {
+  const buttons = sanitizeQuickReplies(options);
+  if (buttons.length === 0 || body.length > MAX_INTERACTIVE_BODY) return sendWhatsAppText(to, body);
+  const result = await sendMessage({
+    messaging_product: "whatsapp",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: { text: body },
+      action: { buttons: buttons.map((title, i) => ({ type: "reply", reply: { id: `qr_${i + 1}`, title } })) },
+    },
+  });
+  return result.ok ? result : sendWhatsAppText(to, body);
+}
+
+/**
+ * Marks an inbound message as read (blue ticks) and shows "typing…" to the
+ * customer while the AI reply is being written — the indicator clears when
+ * our reply arrives (or after ~25s). Purely cosmetic: fire-and-forget, and
+ * any failure is ignored.
+ */
+export async function markReadWithTyping(messageId: string): Promise<void> {
+  if (!messageId) return;
+  await sendMessage({
+    messaging_product: "whatsapp",
+    status: "read",
+    message_id: messageId,
+    typing_indicator: { type: "text" },
+  }).catch(() => undefined);
+}
+
 /** WhatsApp/360dialog expect digits only (country code + number, no "+", spaces or dashes) — customers can have their phone/whatsapp stored in whatever format they typed it in. */
 export function normalizeWhatsAppNumber(raw: string): string {
   return raw.replace(/\D/g, "");

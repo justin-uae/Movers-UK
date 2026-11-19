@@ -24,6 +24,12 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
   if (!lead) notFound();
 
+  // Why route_lead() assigned/pooled this lead — read on its own and
+  // tolerantly: before migration 0122 the column doesn't exist, the query
+  // errors, and the page just shows no note.
+  const { data: routingRow } = await supabase.from("leads").select("routing_note").eq("id", id).maybeSingle();
+  const routingNote = (routingRow as { routing_note?: string | null } | null)?.routing_note ?? null;
+
   const { data: enquiry } = await supabase
     .from("enquiries")
     .select(
@@ -112,6 +118,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       lead={lead as unknown as LeadDetail}
       move={move}
       moveDistance={moveDistance}
+      routingNote={routingNote}
       enquiryId={enquiry?.id ?? null}
       quote={quote}
       sourceDocument={sourceDocument}

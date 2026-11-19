@@ -13,6 +13,7 @@ import { brandsUserTag } from "@/lib/brand";
 import { recordAudit } from "@/lib/audit";
 import { encryptSecret } from "@/lib/crypto";
 import { renderAndSendTemplate } from "@/lib/emailTemplates";
+import { classifyPendingRegions } from "@/lib/regionClassification";
 import type { ProfileStatus, EmailSecurity } from "@/lib/supabase/database.types";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -123,6 +124,8 @@ export async function inviteUserAction(
 
   if (regions.length > 0) {
     await admin.from("user_regions").insert(regions.map((region) => ({ user_id: invited.user.id, region })));
+    // Classify the new regions for geography-based routing (fail-open).
+    await classifyPendingRegions(admin, actor.tenant_id);
   }
 
   await recordAudit({
@@ -247,12 +250,18 @@ export async function addUserRegionAction(
     return { error: "User not found." };
   }
 
-  const { error } = await supabase
+  const { data: inserted, error } = await supabase
     .from("user_regions")
-    .insert({ user_id: userId, region: trimmed, lat: coords?.lat ?? null, lng: coords?.lng ?? null });
+    .insert({ user_id: userId, region: trimmed, lat: coords?.lat ?? null, lng: coords?.lng ?? null })
+    .select("id")
+    .single();
   if (error) {
     return { error: error.message.includes("duplicate") ? "That region is already assigned." : error.message };
   }
+  // Classify it now (country / area / locality) for geography-based routing.
+  // Fail-open: on any Google/DB problem it stays a word-match region and is
+  // retried lazily later. Service-role client — user_regions has no update policy.
+  if (inserted) await classifyPendingRegions(createAdminClient(), actor.tenant_id, [inserted.id]);
 
   await recordAudit({
     tenantId: actor.tenant_id,

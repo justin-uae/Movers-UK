@@ -115,6 +115,7 @@ export function LeadDetailPage({
   lead,
   move,
   moveDistance,
+  routingNote,
   enquiryId,
   quote,
   sourceDocument,
@@ -133,6 +134,8 @@ export function LeadDetailPage({
   move: MoveLeg | null;
   /** Pickup → destination driving distance (the enquiry's move if there is one, else the intake addresses); null when it couldn't be resolved. */
   moveDistance: MoveDistance | null;
+  /** Why region routing assigned or pooled this lead (0122_geo_lead_routing.sql); null for older leads. */
+  routingNote?: string | null;
   enquiryId: string | null;
   quote: LeadDetailQuote | null;
   sourceDocument: LeadSourceDocument | null;
@@ -413,6 +416,12 @@ export function LeadDetailPage({
                     ))
                   }
                 />
+              )}
+              {routingNote && (
+                <div className="border-b py-2 last:border-0">
+                  <div className="text-slate-500">Routing</div>
+                  <div className="mt-1 text-sm text-slate-600">{routingNote}</div>
+                </div>
               )}
               <div className="border-b py-2 last:border-0">
                 <div className="text-slate-500">{isGeneralEnquiry ? "Message" : "Notes"}</div>
